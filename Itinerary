@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bluejack National — Bachelor Party Invitational</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Crimson+Pro:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0C1A0F;
+    --bg2: #111D14;
+    --green1: #1B4332;
+    --green2: #2D5A27;
+    --gold: #D4A843;
+    --gold-light: #F0D78C;
+    --cream: #E8E0D0;
+    --muted: #8B9D83;
+    --border: #2a3a2d;
+    --card: rgba(27, 67, 50, 0.3);
+    --orange: #FF9632;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--cream);
+    font-family: 'Crimson Pro', Georgia, serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .bg-texture {
+    position: fixed; inset: 0; opacity: 0.03; pointer-events: none;
+    background-image: repeating-linear-gradient(0deg, transparent, transparent 50px, rgba(212,168,67,0.3) 50px, rgba(212,168,67,0.3) 51px),
+      repeating-linear-gradient(90deg, transparent, transparent 50px, rgba(212,168,67,0.3) 50px, rgba(212,168,67,0.3) 51px);
+  }
+
+/* Hero */
+.hero { position: relative; width: 100%; height: 220px; overflow: hidden; }
+.hero img { width: 100%; height: 100%; object-fit: cover; object-position: center 40%; display: block; }
+.hero-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(12,26,15,0) 20%, rgba(12,26,15,1) 100%); }
+
+/* Header */
+.header {
+background: linear-gradient(180deg, var(–green1) 0%, var(–bg) 100%);
+border-bottom: 2px solid var(–gold);
+padding: 32px 20px 16px; text-align: center;
+}
+.header-inner { display: flex; align-items: center; justify-content: center; gap: 20px; max-width: 600px; margin: 0 auto; }
+.crest {
+width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(–gold);
+display: flex; align-items: center; justify-content: center;
+background: radial-gradient(circle, var(–green1), var(–bg)); flex-shrink: 0; font-size: 32px;
+}
+.title { font-family: ‘Playfair Display’, serif; font-size: 22px; font-weight: 900; letter-spacing: 4px; color: var(–gold); }
+.subtitle { font-size: 12px; letter-spacing: 6px; color: var(–cream); margin-top: 4px; font-weight: 300; }
+.date-range { font-size: 11px; letter-spacing: 3px; color: var(–muted); margin-top: 4px; }
+.sync-bar { margin-top: 12px; padding-top: 8px; border-top: 1px solid rgba(212,168,67,0.15); }
+.sync-text { font-size: 10px; color: #6a7a6a; letter-spacing: 1px; }
+.sync-text.error { color: #994444; }
+.sync-text.success { color: #4a7c59; }
+
+/* Tabs */
+.tab-bar {
+display: flex; background: var(–bg2); border-bottom: 1px solid var(–border);
+position: sticky; top: 0; z-index: 10;
+}
+.tab {
+flex: 1; padding: 14px 8px; background: none; border: none; border-bottom: 2px solid transparent;
+color: var(–muted); font-size: 11px; letter-spacing: 2px; cursor: pointer;
+font-family: ‘Crimson Pro’, serif; transition: all 0.2s;
+}
+.tab.active { color: var(–gold); border-bottom-color: var(–gold); background: rgba(212,168,67,0.05); }
+
+/* Main */
+.main { max-width: 700px; margin: 0 auto; padding: 16px 12px 40px; }
+
+/* Day headers */
+.day-header {
+width: 100%; display: flex; align-items: center; justify-content: space-between;
+padding: 16px 20px; border: none; border-radius: 8px; cursor: pointer;
+color: var(–cream); font-family: ‘Crimson Pro’, serif; transition: all 0.2s;
+border-left: 5px solid transparent;
+}
+.day-header.expanded { border-left-color: var(–gold); }
+.day-label { font-size: 10px; letter-spacing: 3px; color: var(–gold); text-align: left; }
+.day-title { font-family: ‘Playfair Display’, serif; font-size: 16px; font-weight: 700; letter-spacing: 2px; margin-top: 2px; text-align: left; }
+.day-arrow { font-size: 20px; color: var(–gold); transition: transform 0.3s; }
+.day-arrow.open { transform: rotate(180deg); }
+.day-content { padding: 8px 0; }
+
+/* Event cards */
+.event-card {
+background: var(–card); border: 1px solid var(–border);
+border-radius: 8px; padding: 16px; margin-bottom: 8px; transition: all 0.2s;
+}
+.event-card.highlight {
+background: rgba(212, 168, 67, 0.08); border-color: rgba(212, 168, 67, 0.3);
+box-shadow: 0 0 20px rgba(212, 168, 67, 0.05);
+}
+.event-top { display: flex; align-items: flex-start; gap: 12px; }
+.event-icon { font-size: 28px; flex-shrink: 0; margin-top: 2px; }
+.event-time { font-size: 11px; color: var(–gold); letter-spacing: 2px; font-weight: 600; }
+.event-name { font-family: ‘Playfair Display’, serif; font-size: 15px; font-weight: 700; margin-top: 2px; }
+.event-desc { font-size: 12px; color: var(–muted); margin-top: 2px; }
+
+/* Badges */
+.badge {
+font-size: 9px; letter-spacing: 2px; padding: 4px 10px; border-radius: 20px;
+flex-shrink: 0; font-family: ‘Crimson Pro’, serif;
+}
+.badge.scored { background: rgba(212,168,67,0.15); color: var(–gold); }
+.badge.dinner { background: rgba(255,150,50,0.15); color: var(–orange); }
+
+/* Score grid */
+.score-label {
+font-size: 10px; color: #6a7a6a; letter-spacing: 1px; text-align: center;
+margin: 14px 0 10px; padding-top: 14px; border-top: 1px solid var(–border);
+}
+.score-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); gap: 8px; }
+.score-cell { text-align: center; }
+.score-name { font-size: 10px; color: var(–muted); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.score-input {
+width: 56px; padding: 6px 4px; background: var(–bg); border: 1px solid var(–gold);
+border-radius: 6px; color: var(–gold); font-size: 16px; text-align: center;
+font-family: ‘Crimson Pro’, serif; outline: none;
+}
+.score-display {
+width: 56px; padding: 6px 4px; background: rgba(0,0,0,0.3); border: 1px dashed #3a4a3d;
+border-radius: 6px; color: #555; font-size: 16px; text-align: center; cursor: pointer;
+margin: 0 auto; transition: all 0.2s; font-family: ‘Crimson Pro’, serif;
+}
+.score-display.has-value {
+color: var(–gold); font-weight: 700;
+border: 1px solid rgba(212,168,67,0.3); background: rgba(212,168,67,0.08);
+}
+.golf-rank { font-size: 11px; margin-top: 4px; color: var(–muted); text-align: center; }
+
+/* Dinner */
+.dinner-section { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(–border); }
+.dinner-edit { display: flex; flex-direction: column; gap: 12px; }
+.dinner-label { display: block; font-size: 10px; letter-spacing: 2px; color: var(–gold); margin-bottom: 6px; }
+.dinner-input {
+width: 100%; padding: 10px 12px; background: var(–bg); border: 1px solid #3a4a3d;
+border-radius: 6px; color: var(–cream); font-size: 14px; font-family: ‘Crimson Pro’, serif; outline: none;
+}
+textarea.dinner-input { min-height: 60px; resize: vertical; }
+.dinner-save {
+align-self: flex-end; padding: 8px 24px; background: rgba(212,168,67,0.15);
+border: 1px solid rgba(212,168,67,0.4); border-radius: 6px; color: var(–gold);
+font-size: 11px; letter-spacing: 2px; cursor: pointer; font-family: ‘Crimson Pro’, serif;
+}
+.dinner-display {
+cursor: pointer; padding: 10px 14px; background: rgba(0,0,0,0.2);
+border-radius: 8px; border: 1px dashed #3a4a3d; transition: all 0.2s;
+}
+.dinner-host { font-family: ‘Playfair Display’, serif; font-size: 15px; font-weight: 700; }
+.dinner-menu { font-size: 13px; color: var(–muted); margin-top: 4px; line-height: 1.5; }
+.dinner-placeholder { font-size: 12px; color: #555; text-align: center; }
+
+/* Leaderboard */
+.lb-header { text-align: center; padding: 24px 0 20px; }
+.lb-crown { font-size: 40px; }
+.lb-title { font-family: ‘Playfair Display’, serif; font-size: 20px; letter-spacing: 4px; color: var(–gold); margin: 8px 0 4px; font-weight: 700; }
+.lb-sub { font-size: 12px; color: var(–muted); }
+.lb-note { font-size: 10px; color: #6a7a6a; margin-top: 4px; }
+.lb-row {
+display: flex; align-items: center; gap: 16px; padding: 16px 20px;
+background: rgba(27,67,50,0.2); border: 1px solid var(–border); border-radius: 8px; margin-bottom: 8px;
+}
+.lb-row.first { background: rgba(212,168,67,0.08); border-color: rgba(212,168,67,0.3); }
+.lb-rank { width: 36px; text-align: center; flex-shrink: 0; }
+.lb-rank-num { font-size: 18px; font-weight: 700; color: #555; }
+.lb-name { font-family: ‘Playfair Display’, serif; font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+.lb-bar-outer { height: 6px; background: rgba(0,0,0,0.3); border-radius: 3px; overflow: hidden; }
+.lb-bar-inner { height: 100%; border-radius: 3px; transition: width 0.5s ease; min-width: 2px; }
+.lb-events { font-size: 10px; color: var(–muted); margin-top: 4px; }
+.lb-total { flex-shrink: 0; min-width: 60px; text-align: right; }
+.lb-avg { font-size: 24px; font-weight: 700; color: var(–gold); }
+.lb-avg-label { font-size: 9px; color: var(–muted); letter-spacing: 1px; }
+
+/* Breakdown */
+.section-title { font-family: ‘Playfair Display’, serif; font-size: 14px; letter-spacing: 3px; color: var(–gold); text-align: center; margin-bottom: 16px; }
+.breakdown-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.breakdown-card { background: rgba(27,67,50,0.2); border: 1px solid var(–border); border-radius: 8px; padding: 14px; }
+.breakdown-icon { font-size: 22px; margin-bottom: 6px; }
+.breakdown-name { font-size: 12px; font-weight: 700; letter-spacing: 1px; margin-bottom: 4px; }
+.breakdown-type { font-size: 9px; color: #6a7a6a; margin-bottom: 8px; letter-spacing: 1px; }
+.breakdown-row { display: flex; justify-content: space-between; font-size: 11px; color: var(–muted); margin-bottom: 3px; }
+.breakdown-val { font-weight: 700; }
+.breakdown-val.has { color: var(–gold); }
+
+/* Players */
+.players-title { font-family: ‘Playfair Display’, serif; font-size: 20px; letter-spacing: 4px; color: var(–gold); text-align: center; margin-top: 24px; margin-bottom: 4px; }
+.players-sub { font-size: 12px; color: var(–muted); text-align: center; margin-bottom: 24px; }
+.players-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.player-card {
+background: var(–card); border: 1px solid var(–border);
+border-radius: 12px; padding: 20px; text-align: center; position: relative;
+}
+.player-emoji { font-size: 36px; margin-bottom: 8px; }
+.player-name { font-family: ‘Playfair Display’, serif; font-size: 14px; font-weight: 700; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+.player-input {
+background: var(–bg); border: 1px solid var(–gold); border-radius: 4px;
+color: var(–gold); font-size: 14px; font-weight: 700; text-align: center;
+padding: 4px 8px; font-family: ‘Crimson Pro’, serif; outline: none; width: 80%;
+}
+.player-stats { font-size: 11px; color: var(–muted); margin-top: 8px; }
+.remove-btn {
+position: absolute; top: 8px; right: 8px; background: none; border: none;
+color: #553333; cursor: pointer; font-size: 14px; padding: 4px;
+}
+.add-btn {
+display: block; width: 100%; margin-top: 16px; padding: 14px;
+background: none; border: 2px dashed var(–border); border-radius: 12px;
+color: var(–muted); font-size: 12px; letter-spacing: 3px; cursor: pointer;
+font-family: ‘Crimson Pro’, serif;
+}
+.reset-btn {
+margin-top: 40px; padding: 10px 24px; background: rgba(100,30,30,0.2);
+border: 1px solid rgba(150,50,50,0.4); border-radius: 6px; color: #994444;
+font-size: 10px; letter-spacing: 2px; cursor: pointer; font-family: ‘Crimson Pro’, serif;
+}
+
+/* Course photo */
+.course-photo-wrap { margin: 12px 0; border-radius: 8px; overflow: hidden; border: 1px solid var(–border); }
+.course-photo { width: 100%; height: 160px; object-fit: cover; display: block; }
+
+/* Footer */
+.footer { padding: 20px 20px 32px; text-align: center; }
+.footer-line { height: 1px; background: linear-gradient(90deg, transparent, var(–gold), transparent); max-width: 300px; margin: 0 auto 16px; }
+.footer-text { font-size: 10px; letter-spacing: 4px; color: #555; }
+
+/* Loading */
+.loading { display: flex; align-items: center; justify-content: center; min-height: 100vh; flex-direction: column; }
+.loading-icon { font-size: 48px; margin-bottom: 16px; animation: pulse 2s infinite; }
+.loading-text { color: var(–gold); font-size: 14px; letter-spacing: 3px; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+.hidden { display: none; }
+.mb-16 { margin-bottom: 16px; }
+.mt-28 { margin-top: 28px; }
+.mt-32 { margin-top: 32px; }
+</style>
+
+</head>
+<body>
+
+<div class="bg-texture"></div>
+<div id="app"></div>
+
+<script>
+// ─── CONFIG ───
+const SHEET_ID = '1-CJMz7nrORp84v2N5ojFMltNo26kP-kg7MGCk_5AkPw';
+const API_KEY = 'AIzaSyCh6rHXTVhXMbiM7wdutZ_RhAy8JC0Xggk';
+const SHEET_NAME = 'Sheet1';
+const BASE_URL = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`;
+
+// ─── DATA ───
+const DEFAULT_PLAYERS = [
+  { name: "Player 1", emoji: "🏌️" },
+  { name: "Player 2", emoji: "🍺" },
+  { name: "Player 3", emoji: "🔥" },
+  { name: "Player 4", emoji: "⛳" },
+  { name: "Player 5", emoji: "🎯" },
+  { name: "Player 6", emoji: "🏆" },
+  { name: "Player 7", emoji: "🦅" },
+];
+
+const DINNER_NIGHTS = [
+  { id: "fri_dinner", label: "Friday Night" },
+  { id: "sat_dinner", label: "Saturday Night" },
+  { id: "sun_dinner", label: "Sunday Night" },
+];
+
+const SCHEDULE = [
+  { day: "THU APR 17", label: "DAY 1 — ARRIVAL", color: "var(--green2)", events: [
+    { id: "d1_arrive", time: "Evening", name: "Arrive & Check In", type: "info", icon: "🏡" },
+    { id: "d1_dinner", time: "7:30 PM", name: "Dinner at the House", type: "info", icon: "🥩", desc: "Welcome the boys" },
+  ]},
+  { day: "FRI APR 18", label: "DAY 2 — ROUND 1", color: "var(--green1)", events: [
+    { id: "d2_gym", time: "7:00 AM", name: "Gym / Cold Plunge / Sauna", type: "info", icon: "🧊" },
+    { id: "d2_golf_a", time: "10:22 AM", name: "ROUND 1 — Group A (4-man)", type: "scored", scoring: "golf", icon: "🏌️", desc: "First foursome out", highlight: true },
+    { id: "d2_golf_b", time: "3:46 PM", name: "ROUND 1 — Group B (3-man)", type: "scored", scoring: "golf", icon: "🏌️", desc: "Afternoon threesome", highlight: true },
+    { id: "d2_dinner", time: "7:00 PM", name: "Dinner", type: "dinner", icon: "🍽️", dinnerId: "fri_dinner" },
+    { id: "d2_putting", time: "Sunset", name: "Sunset Putting Course", type: "scored", icon: "🌅", desc: "Golden hour on the greens" },
+  ]},
+  { day: "SAT APR 19", label: "DAY 3 — ROUND 2", color: "var(--green2)", events: [
+    { id: "d3_gym", time: "7:00 AM", name: "Gym / Cold Plunge / Sauna", type: "info", icon: "💪" },
+    { id: "d3_golf_a", time: "10:22 AM", name: "ROUND 2 — Group A (4-man)", type: "scored", scoring: "golf", icon: "🏌️", desc: "First foursome out", highlight: true },
+    { id: "d3_golf_b", time: "3:46 PM", name: "ROUND 2 — Group B (3-man)", type: "scored", scoring: "golf", icon: "🏌️", desc: "Afternoon threesome", highlight: true },
+    { id: "d3_dinner", time: "7:00 PM", name: "Dinner", type: "dinner", icon: "🥂", dinnerId: "sat_dinner" },
+    { id: "d3_pong", time: "9:00 PM", name: "Beer Pong Tournament", type: "scored", icon: "🍺", desc: "Bracket-style showdown" },
+  ]},
+  { day: "SUN APR 20", label: "DAY 4 — COMPETE", color: "var(--green1)", events: [
+    { id: "d4_gym", time: "7:00 AM", name: "Gym / Cold Plunge / Sauna", type: "info", icon: "🧊" },
+    { id: "d4_pickle", time: "9:00 AM", name: "Pickleball Tournament", type: "scored", icon: "🏓", desc: "Round robin" },
+    { id: "d4_lunch", time: "12:00 PM", name: "Lunch", type: "info", icon: "🍽️" },
+    { id: "d4_par3", time: "2:00 PM", name: "Par 3 Tournament", type: "scored", icon: "⛳", desc: "Closest to the pin" },
+    { id: "d4_dinner", time: "7:00 PM", name: "Awards Dinner", type: "dinner", icon: "🏅", desc: "Trophies & roasts", dinnerId: "sun_dinner" },
+  ]},
+  { day: "MON APR 21", label: "DAY 5 — CHAMPIONSHIP", color: "var(--green2)", events: [
+    { id: "d5_gym", time: "7:00 AM", name: "Gym / Cold Plunge / Sauna", type: "info", icon: "💪" },
+    { id: "d5_golf_a", time: "10:00 AM", name: "CHAMPIONSHIP — Group A", type: "scored", scoring: "golf", icon: "🏆", desc: "Final round", highlight: true },
+    { id: "d5_golf_b", time: "10:12 AM", name: "CHAMPIONSHIP — Group B", type: "scored", scoring: "golf", icon: "🏆", desc: "Right behind 'em", highlight: true },
+    { id: "d5_lunch", time: "2:00 PM", name: "Farewell Lunch", type: "info", icon: "🥞" },
+    { id: "d5_depart", time: "4:00 PM", name: "Fly Home", type: "info", icon: "✈️" },
+  ]},
+];
+
+const SCORED_EVENTS = SCHEDULE.flatMap(d => d.events.filter(e => e.type === "scored"));
+const ordinal = n => n===1?"1st":n===2?"2nd":n===3?"3rd":`${n}th`;
+
+// ─── STATE ───
+let state = {
+  players: [...DEFAULT_PLAYERS],
+  scores: {},
+  dinners: {},
+  activeTab: "itinerary",
+  expandedDay: 0,
+  editingScore: null,
+  editingPlayer: null,
+  editingDinner: null,
+  loaded: false,
+  syncing: false,
+  lastSynced: null,
+  syncError: null,
+};
+
+// ─── GOOGLE SHEETS API ───
+async function sheetsGet() {
+  try {
+    const res = await fetch(`${BASE_URL}/values/${SHEET_NAME}?key=${API_KEY}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const rows = data.values || [];
+    const map = {};
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0]) map[rows[i][0]] = rows[i][1] || '';
+    }
+    return map;
+  } catch (e) {
+    console.error('Sheets GET error:', e);
+    throw e;
+  }
+}
+
+async function sheetsPut(key, value) {
+  // Find existing row or append
+  try {
+    const res = await fetch(`${BASE_URL}/values/${SHEET_NAME}?key=${API_KEY}`);
+    const data = await res.json();
+    const rows = data.values || [];
+    let rowIndex = -1;
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] === key) { rowIndex = i + 1; break; }
+    }
+    const now = new Date().toISOString();
+    const range = rowIndex > 0
+      ? `${SHEET_NAME}!A${rowIndex}:C${rowIndex}`
+      : `${SHEET_NAME}!A${rows.length + 1}:C${rows.length + 1}`;
+    const method = rowIndex > 0 ? 'PUT' : 'PUT';
+
+    await fetch(
+      `${BASE_URL}/values/${range}?valueInputOption=RAW&key=${API_KEY}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ range, majorDimension: 'ROWS', values: [[key, value, now]] }),
+      }
+    );
+  } catch (e) {
+    console.error('Sheets PUT error:', e);
+    throw e;
+  }
+}
+
+async function loadFromSheets() {
+  try {
+    const map = await sheetsGet();
+    if (map.players) state.players = JSON.parse(map.players);
+    if (map.scores) state.scores = JSON.parse(map.scores);
+    if (map.dinners) state.dinners = JSON.parse(map.dinners);
+    state.syncError = null;
+    state.lastSynced = new Date();
+  } catch (e) {
+    state.syncError = 'Could not load from Google Sheets. Check your API key and Sheet ID.';
+  }
+  state.loaded = true;
+}
+
+let saveTimeout = null;
+function scheduleSave() {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async () => {
+    state.syncing = true;
+    render();
+    try {
+      await sheetsPut('players', JSON.stringify(state.players));
+      await sheetsPut('scores', JSON.stringify(state.scores));
+      await sheetsPut('dinners', JSON.stringify(state.dinners));
+      state.syncError = null;
+      state.lastSynced = new Date();
+    } catch (e) {
+      state.syncError = 'Save failed — check connection';
+    }
+    state.syncing = false;
+    render();
+  }, 800);
+}
+
+// Poll for updates every 20s
+setInterval(async () => {
+  if (!state.loaded || state.editingScore || state.editingPlayer || state.editingDinner) return;
+  try {
+    const map = await sheetsGet();
+    if (map.players) state.players = JSON.parse(map.players);
+    if (map.scores) state.scores = JSON.parse(map.scores);
+    if (map.dinners) state.dinners = JSON.parse(map.dinners);
+    state.lastSynced = new Date();
+    state.syncError = null;
+    render();
+  } catch (e) { /* silent */ }
+}, 20000);
+
+// ─── SCORING LOGIC ───
+function getScore(pIdx, evId) { return state.scores[`${pIdx}_${evId}`] ?? null; }
+function setScore(pIdx, evId, val) {
+  if (val === null || val === '') delete state.scores[`${pIdx}_${evId}`];
+  else state.scores[`${pIdx}_${evId}`] = parseInt(val) || 0;
+  scheduleSave();
+}
+
+function getGolfRankings(evId) {
+  const entries = state.players.map((_, i) => ({ i, net: getScore(i, evId) })).filter(e => e.net !== null);
+  entries.sort((a, b) => a.net - b.net);
+  const r = {};
+  for (let i = 0; i < entries.length; i++) {
+    r[entries[i].i] = (i > 0 && entries[i].net === entries[i-1].net) ? r[entries[i-1].i] : i + 1;
+  }
+  return r;
+}
+
+function getFinishingPlace(pIdx, ev) {
+  if (ev.scoring === "golf") return getGolfRankings(ev.id)[pIdx] ?? null;
+  return getScore(pIdx, ev.id);
+}
+
+function getPlayerStats(pIdx) {
+  let total = 0, count = 0;
+  SCORED_EVENTS.forEach(ev => {
+    const p = getFinishingPlace(pIdx, ev);
+    if (p !== null) { total += p; count++; }
+  });
+  return { count, avg: count > 0 ? total / count : null };
+}
+
+function getLeaderboard() {
+  return state.players.map((p, i) => ({ ...p, idx: i, ...getPlayerStats(i) }))
+    .sort((a, b) => {
+      if (a.avg === null && b.avg === null) return 0;
+      if (a.avg === null) return 1;
+      if (b.avg === null) return -1;
+      return a.avg - b.avg;
+    });
+}
+
+function getDinner(id) { return state.dinners[id] || { host: '', menu: '' }; }
+
+// ─── RENDER ───
+function render() {
+  const app = document.getElementById('app');
+
+  if (!state.loaded) {
+    app.innerHTML = `<div class="loading"><div class="loading-icon">⛳</div><div class="loading-text">LOADING SCOREBOARD...</div></div>`;
+    return;
+  }
+
+  const syncClass = state.syncError ? 'error' : state.lastSynced ? 'success' : '';
+  const syncMsg = state.syncing ? 'Saving to Google Sheets...'
+    : state.syncError ? state.syncError
+    : state.lastSynced ? '✓ Synced with Google Sheets — shared with all players'
+    : 'Connecting to Google Sheets...';
+
+  let html = `
+    <div class="hero">
+      <img src="https://bluejacknational.com/wp-content/uploads/2023/05/Bluejack_Golf_Tiger_Woods_Design_Hole13.jpg" alt="Bluejack" onerror="this.parentElement.style.display='none'">
+      <div class="hero-overlay"></div>
+    </div>
+    <header class="header">
+      <div class="header-inner">
+        <div class="crest">⛳</div>
+        <div>
+          <div class="title">BLUEJACK NATIONAL</div>
+          <div class="subtitle">BACHELOR PARTY INVITATIONAL</div>
+          <div class="date-range">APRIL 17 – 21, 2025</div>
+        </div>
+      </div>
+      <div class="sync-bar"><span class="sync-text ${syncClass}">${syncMsg}</span></div>
+    </header>
+    <nav class="tab-bar">
+      ${TABS_HTML()}
+    </nav>
+    <main class="main">
+      ${state.activeTab === 'itinerary' ? renderItinerary() : state.activeTab === 'leaderboard' ? renderLeaderboard() : renderPlayers()}
+    </main>
+    <footer class="footer">
+      <div class="footer-line"></div>
+      <div class="footer-text">BLUEJACK NATIONAL — MONTGOMERY, TX</div>
+    </footer>
+  `;
+  app.innerHTML = html;
+  attachListeners();
+}
+
+function TABS_HTML() {
+  return ['itinerary','leaderboard','players'].map(t => {
+    const label = t === 'itinerary' ? '📋 ITINERARY' : t === 'leaderboard' ? '🏆 LEADERBOARD' : '👥 PLAYERS';
+    return `<button class="tab ${state.activeTab===t?'active':''}" data-tab="${t}">${label}</button>`;
+  }).join('');
+}
+
+function renderItinerary() {
+  return SCHEDULE.map((day, di) => {
+    const expanded = state.expandedDay === di;
+    return `<div class="mb-16">
+      <button class="day-header ${expanded?'expanded':''}" data-day="${di}" style="background:${day.color}">
+        <div><div class="day-label">${day.day}</div><div class="day-title">${day.label}</div></div>
+        <span class="day-arrow ${expanded?'open':''}">▼</span>
+      </button>
+      ${expanded ? `<div class="day-content">${day.events.map(ev => renderEvent(ev, di)).join('')}
+        ${di === 1 ? `<div class="course-photo-wrap"><img class="course-photo" src="https://bluejacknational.com/wp-content/uploads/2023/06/Bluejack_Golf_TigerWoods_Design_Hole4.jpg" onerror="this.parentElement.style.display='none'"></div>` : ''}
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderEvent(ev, di) {
+  if (ev.type === 'dinner') return renderDinnerEvent(ev);
+  if (ev.type === 'info') {
+    return `<div class="event-card"><div class="event-top">
+      <span class="event-icon">${ev.icon}</span>
+      <div style="flex:1"><div class="event-time">${ev.time}</div><div class="event-name">${ev.name}</div>${ev.desc?`<div class="event-desc">${ev.desc}</div>`:''}</div>
+    </div></div>`;
+  }
+  // Scored
+  const rankings = ev.scoring === 'golf' ? getGolfRankings(ev.id) : {};
+  return `<div class="event-card ${ev.highlight?'highlight':''}">
+    <div class="event-top">
+      <span class="event-icon">${ev.icon}</span>
+      <div style="flex:1"><div class="event-time">${ev.time}</div><div class="event-name">${ev.name}</div>${ev.desc?`<div class="event-desc">${ev.desc}</div>`:''}</div>
+      <span class="badge scored">SCORED</span>
+    </div>
+    <div class="score-label">${ev.scoring==='golf'?'Enter net scores — ties share rank':'Enter finishing place (1–7)'}</div>
+    <div class="score-grid">
+      ${state.players.map((p, pi) => {
+        const s = getScore(pi, ev.id);
+        const rank = rankings[pi];
+        const isEditing = state.editingScore === `${pi}_${ev.id}`;
+        return `<div class="score-cell">
+          <div class="score-name">${p.emoji} ${p.name.split(' ')[0]}</div>
+          ${isEditing
+            ? `<input class="score-input" type="number" data-player="${pi}" data-event="${ev.id}" value="${s??''}" placeholder="${ev.scoring==='golf'?'Net':'1-7'}" autofocus>`
+            : `<div class="score-display ${s!==null?'has-value':''}" data-player="${pi}" data-event="${ev.id}">${s!==null?s:'–'}</div>`}
+          ${ev.scoring==='golf'&&rank!=null?`<div class="golf-rank">${rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':ordinal(rank)}</div>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+function renderDinnerEvent(ev) {
+  const d = getDinner(ev.dinnerId);
+  const isEditing = state.editingDinner === ev.dinnerId;
+  return `<div class="event-card">
+    <div class="event-top">
+      <span class="event-icon">${ev.icon}</span>
+      <div style="flex:1"><div class="event-time">${ev.time}</div><div class="event-name">${ev.name}</div>${ev.desc?`<div class="event-desc">${ev.desc}</div>`:''}</div>
+      <span class="badge dinner">🍳 HOSTED</span>
+    </div>
+    <div class="dinner-section">
+      ${isEditing ? `<div class="dinner-edit">
+        <div><label class="dinner-label">CHEF OF THE NIGHT</label><input class="dinner-input" data-dinner="${ev.dinnerId}" data-field="host" value="${d.host}" placeholder="Who's cooking?"></div>
+        <div><label class="dinner-label">ON THE MENU</label><textarea class="dinner-input" data-dinner="${ev.dinnerId}" data-field="menu" placeholder="What are they making?">${d.menu}</textarea></div>
+
+```
+    <button class="dinner-save" data-dinner-save="${ev.dinnerId}">SAVE</button>
+  </div>` : `<div class="dinner-display" data-dinner-edit="${ev.dinnerId}">
+    ${d.host ? `<div><div class="dinner-host">👨‍🍳 ${d.host}</div>${d.menu?`<div class="dinner-menu">${d.menu}</div>`:''}</div>` : `<div class="dinner-placeholder">Tap to assign tonight's chef & menu</div>`}
+  </div>`}
+</div>
+```
+
+  </div>`;
+}
+
+function renderLeaderboard() {
+const lb = getLeaderboard();
+const scored = lb.filter(p => p.avg !== null);
+const worstAvg = scored.length > 0 ? scored[scored.length-1].avg : 7;
+const bestAvg = scored.length > 0 ? scored[0].avg : 1;
+const range = Math.max(worstAvg - bestAvg, 0.1);
+const medals = [‘🥇’,‘🥈’,‘🥉’];
+
+let html = `<div class="lb-header">
+<div class="lb-crown">👑</div>
+<div class="lb-title">OVERALL STANDINGS</div>
+<div class="lb-sub">Ranked by average finishing place — lowest wins</div>
+<div class="lb-note">Golf ties share the same rank (standard competition ranking)</div>
+
+  </div>`;
+
+lb.forEach((p, rank) => {
+const barW = p.avg !== null ? Math.max(8, (1 - (p.avg - bestAvg) / range) * 100) : 0;
+const bgGrad = rank === 0 && p.avg !== null
+? ‘linear-gradient(90deg, #D4A843, #F0D78C)’
+: ‘linear-gradient(90deg, #4a7c59, #6ba368)’;
+html += `<div class="lb-row ${rank===0&&p.avg!==null?'first':''}"> <div class="lb-rank">${rank<3&&p.avg!==null?`<span style="font-size:24px">${medals[rank]}</span>`:`<span class="lb-rank-num">${rank+1}</span>`}</div> <div style="flex:1"> <div class="lb-name">${p.emoji} ${p.name}</div> <div class="lb-bar-outer"><div class="lb-bar-inner" style="width:${barW}%;background:${bgGrad}"></div></div> <div class="lb-events">${p.count} / ${SCORED_EVENTS.length} events scored</div> </div> <div class="lb-total">${p.avg!==null?`<div class="lb-avg">${p.avg.toFixed(1)}</div><div class="lb-avg-label">AVG PLACE</div>`:'–'}</div> </div>`;
+});
+
+// Dinner hosts
+if (Object.values(state.dinners).some(d => d.host)) {
+html += `<div class="mt-28"><div class="section-title">🍳 DINNER HOSTS</div><div class="breakdown-grid">`;
+DINNER_NIGHTS.forEach(dn => {
+const d = getDinner(dn.id);
+html += `<div class="breakdown-card"> <div style="font-size:10px;letter-spacing:2px;color:var(--gold);margin-bottom:6px">${dn.label}</div> ${d.host?`<div style="font-size:14px;font-weight:700">👨‍🍳 ${d.host}</div>${d.menu?`<div style="font-size:12px;color:var(--muted);margin-top:4px">${d.menu}</div>`:’’}`:`<div style="font-size:12px;color:#555">TBD</div>`} </div>`;
+});
+html += `</div></div>`;
+}
+
+// Event breakdown
+html += `<div class="mt-32"><div class="section-title">EVENT BREAKDOWN</div><div class="breakdown-grid">`;
+SCORED_EVENTS.forEach(ev => {
+html += `<div class="breakdown-card"><div class="breakdown-icon">${ev.icon}</div><div class="breakdown-name">${ev.name}</div> <div class="breakdown-type">${ev.scoring==='golf'?'NET SCORE → RANK':'FINISHING PLACE'}</div>`;
+state.players.forEach((p, pi) => {
+const raw = getScore(pi, ev.id);
+const place = getFinishingPlace(pi, ev);
+let val = ‘–’;
+if (ev.scoring===‘golf’ && raw!==null) val = `${raw} (${ordinal(place)})`;
+else if (place!==null) val = ordinal(place);
+html += `<div class="breakdown-row"><span style="opacity:0.7">${p.name.split(' ')[0]}</span><span class="breakdown-val ${place!==null?'has':''}">${val}</span></div>`;
+});
+html += `</div>`;
+});
+html += `</div></div>`;
+return html;
+}
+
+function renderPlayers() {
+let html = `<div class="players-title">THE FIELD</div> <p class="players-sub">Tap a name to edit. Changes sync to everyone.</p> <div class="players-grid">`;
+state.players.forEach((p, idx) => {
+const stats = getPlayerStats(idx);
+const isEditing = state.editingPlayer === idx;
+html += `<div class="player-card"> <div class="player-emoji">${p.emoji}</div> ${isEditing ? `<input class="player-input" data-player-edit="${idx}" value="${p.name}" maxlength="20" autofocus>`:`<div class="player-name" data-player-click="${idx}">${p.name}</div>`} <div class="player-stats">${stats.count} events · ${stats.avg!==null?stats.avg.toFixed(1)+' avg':'No scores'}</div> ${state.players.length > 2 ? `<button class="remove-btn" data-remove="${idx}">✕</button>` : ''} </div>`;
+});
+html += `</div>`;
+if (state.players.length < 12) html += `<button class="add-btn" id="addPlayer">+ ADD PLAYER</button>`;
+html += `<div style="text-align:center"><button class="reset-btn" id="resetAll">RESET ALL DATA</button></div>`;
+return html;
+}
+
+// ─── EVENT LISTENERS ───
+function attachListeners() {
+// Tabs
+document.querySelectorAll(’[data-tab]’).forEach(el => {
+el.onclick = () => { state.activeTab = el.dataset.tab; render(); };
+});
+
+// Day expand
+document.querySelectorAll(’[data-day]’).forEach(el => {
+el.onclick = () => {
+const d = parseInt(el.dataset.day);
+state.expandedDay = state.expandedDay === d ? -1 : d;
+render();
+};
+});
+
+// Score display click → edit
+document.querySelectorAll(’.score-display’).forEach(el => {
+el.onclick = () => {
+state.editingScore = `${el.dataset.player}_${el.dataset.event}`;
+render();
+const input = document.querySelector(’.score-input[data-player=”’+el.dataset.player+’”][data-event=”’+el.dataset.event+’”]’);
+if (input) input.focus();
+};
+});
+
+// Score input blur/enter
+document.querySelectorAll(’.score-input’).forEach(el => {
+const finish = () => {
+const v = el.value.trim();
+if (v === ‘’) setScore(parseInt(el.dataset.player), el.dataset.event, null);
+else setScore(parseInt(el.dataset.player), el.dataset.event, v);
+state.editingScore = null;
+render();
+};
+el.onblur = finish;
+el.onkeydown = e => { if (e.key === ‘Enter’) { e.preventDefault(); finish(); } };
+});
+
+// Dinner edit click
+document.querySelectorAll(’[data-dinner-edit]’).forEach(el => {
+el.onclick = () => { state.editingDinner = el.dataset.dinnerEdit; render(); };
+});
+
+// Dinner inputs
+document.querySelectorAll(’.dinner-input[data-dinner]’).forEach(el => {
+el.oninput = () => {
+const d = getDinner(el.dataset.dinner);
+d[el.dataset.field] = el.value;
+state.dinners[el.dataset.dinner] = d;
+};
+});
+
+// Dinner save
+document.querySelectorAll(’[data-dinner-save]’).forEach(el => {
+el.onclick = () => { state.editingDinner = null; scheduleSave(); render(); };
+});
+
+// Player name click
+document.querySelectorAll(’[data-player-click]’).forEach(el => {
+el.onclick = () => { state.editingPlayer = parseInt(el.dataset.playerClick); render(); };
+});
+
+// Player name input
+document.querySelectorAll(’[data-player-edit]’).forEach(el => {
+const finish = () => {
+const v = el.value.trim();
+if (v) { state.players[parseInt(el.dataset.playerEdit)].name = v; scheduleSave(); }
+state.editingPlayer = null;
+render();
+};
+el.onblur = finish;
+el.onkeydown = e => { if (e.key === ‘Enter’) { e.preventDefault(); finish(); } };
+});
+
+// Remove player
+document.querySelectorAll(’[data-remove]’).forEach(el => {
+el.onclick = () => {
+const idx = parseInt(el.dataset.remove);
+if (state.players.length <= 2) return;
+state.players.splice(idx, 1);
+// Reindex scores
+const newScores = {};
+Object.entries(state.scores).forEach(([key, val]) => {
+const pIdx = parseInt(key.split(’*’)[0]);
+if (pIdx !== idx) {
+const newIdx = pIdx > idx ? pIdx - 1 : pIdx;
+const evId = key.substring(key.indexOf(’*’) + 1);
+newScores[`${newIdx}_${evId}`] = val;
+}
+});
+state.scores = newScores;
+scheduleSave(); render();
+};
+});
+
+// Add player
+const addBtn = document.getElementById(‘addPlayer’);
+if (addBtn) addBtn.onclick = () => {
+const emojis = [“🎉”,“🍻”,“🌟”,“💎”,“🦅”,“🐊”,“🎪”,“🏹”,“🪁”,“🎸”];
+state.players.push({ name: `Player ${state.players.length+1}`, emoji: emojis[state.players.length % emojis.length] });
+scheduleSave(); render();
+};
+
+// Reset
+const resetBtn = document.getElementById(‘resetAll’);
+if (resetBtn) resetBtn.onclick = () => {
+if (confirm(‘Reset ALL scores, dinners, and player names? This affects everyone.’)) {
+state.players = […DEFAULT_PLAYERS];
+state.scores = {};
+state.dinners = {};
+scheduleSave(); render();
+}
+};
+}
+
+// ─── INIT ───
+render();
+loadFromSheets().then(() => render());
+</script>
+
+</body>
+</html>
