@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { BUCKETS } from "@/lib/constants";
 import { fmtDate, fmtMoneyM, fmtMultiple } from "@/lib/format";
-import { latestBatch, latestInvestmentSnapshots, missingReason } from "@/lib/queries/snapshots";
+import { latestBatches, latestInvestmentSnapshots, missingReason } from "@/lib/queries/snapshots";
 import { Fig } from "@/components/ui/Fig";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/Badge";
@@ -12,7 +12,8 @@ export const dynamic = "force-dynamic";
 
 export default async function InvestmentsPage({ searchParams }: { searchParams: Promise<{ fund?: string; bucket?: string; status?: string }> }) {
   const sp = await searchParams;
-  const [funds, batch] = await Promise.all([prisma.fund.findMany({ orderBy: { vintage: "asc" } }), latestBatch()]);
+  const [funds, latest] = await Promise.all([prisma.fund.findMany({ orderBy: { vintage: "asc" } }), latestBatches()]);
+  const batch = latest.global;
   const investments = await prisma.investment.findMany({
     where: {
       fundId: sp.fund || undefined,
@@ -25,11 +26,11 @@ export default async function InvestmentsPage({ searchParams }: { searchParams: 
     },
     orderBy: [{ fund: { vintage: "asc" } }, { name: "asc" }],
   });
-  const snaps = await latestInvestmentSnapshots(batch);
+  const snaps = await latestInvestmentSnapshots(latest);
 
   return (
     <div>
-      <PageHeader title="Investments" subtitle={batch ? `Financials as of ${fmtDate(batch.asOfDate)} · ${batch.fileName}` : "No accounting import committed yet."}>
+      <PageHeader title="Investments" subtitle={batch ? `Latest import as of ${fmtDate(batch.asOfDate)} · each fund shows its own as-of` : "No accounting import committed yet."}>
         <span className="muted">{investments.length} shown</span>
       </PageHeader>
       <FilterBar
@@ -54,12 +55,14 @@ export default async function InvestmentsPage({ searchParams }: { searchParams: 
               <th className="num">MOIC (rep.)</th>
               <th>Status</th>
               <th>As of</th>
+              <th>Valued</th>
               <th>Last report</th>
             </tr>
           </thead>
           <tbody>
             {investments.map((i) => {
               const s = snaps.get(i.id);
+              const batch = latest.byFund.get(i.fund.id) ?? null;
               return (
                 <tr key={i.id}>
                   <td className="card-title"><Link href={`/investments/${i.id}`} className="link font-medium">{i.name}</Link></td>
@@ -71,6 +74,7 @@ export default async function InvestmentsPage({ searchParams }: { searchParams: 
                   <td className="num" data-label="MOIC (rep.)"><Fig value={s?.moic} fmt={fmtMultiple} missing={missingReason(s, "MOIC", batch)} /></td>
                   <td data-label="Status"><StatusBadge status={i.status} /></td>
                   <td className="whitespace-nowrap" data-label="As of">{s ? fmtDate(s.asOfDate) : <span className="missing" title={missingReason(s, "", batch)}>—</span>}</td>
+                  <td className="whitespace-nowrap card-hide muted">{s?.holdingStatus ?? (s?.valuationDate ? fmtDate(s.valuationDate) : "—")}</td>
                   <td className="whitespace-nowrap card-hide">{i.documents[0] ? fmtDate(i.documents[0].date) : <span className="faint" title="No quarterly report uploaded">—</span>}</td>
                 </tr>
               );

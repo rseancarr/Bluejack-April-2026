@@ -20,20 +20,20 @@ const NAV = [
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const store = await cookies();
   const user = verifySessionToken(store.get(SESSION_COOKIE)?.value);
-  const hasLogo = existsSync(path.join(process.cwd(), "public", "brand", "logo.svg"));
+  const logoFile = ["logo.svg", "logo.png"].find((f) => existsSync(path.join(process.cwd(), "public", "brand", f)));
 
   return (
     <>
       <header className="border-b border-line bg-paper">
         <div className="mx-auto max-w-[1400px] px-3 md:px-6 flex items-center gap-4 md:gap-5 lg:gap-8 h-12">
           <Link href="/" className="flex items-center gap-3 shrink-0" aria-label="Freestone Capital">
-            {hasLogo ? (
+            {logoFile ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src="/brand/logo.svg" alt="Freestone Capital" className="h-5 w-auto" />
+              <img src={`/brand/${logoFile}`} alt="Freestone" className="h-[22px] w-auto" />
             ) : (
               <span className="wordmark">Freestone Capital</span>
             )}
-            <span className="text-ink-4 text-[11px] uppercase tracking-[0.12em] hidden lg:inline">Portfolio</span>
+            <span className="text-navy text-[11px] uppercase tracking-[0.14em] hidden lg:inline pt-0.5">Portfolio</span>
           </Link>
           {user && <div className="hidden md:block"><Nav items={NAV} /></div>}
           <div className="ml-auto flex items-center gap-3 text-ink-3">

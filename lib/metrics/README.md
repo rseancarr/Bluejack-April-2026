@@ -14,11 +14,18 @@ Inputs are the fields stored on a `FinancialSnapshot`, exactly as imported.
 | `rvpi` | `nav / contributions` | same |
 | `tvpi` | `(distributions + nav) / contributions` | same. Labelled "TVPI (computed)" in the UI to distinguish from the workbook's reported MOIC. |
 | `moicComputed` | `(distributions + nav) / cost` | only used when the workbook has no MOIC column; UI labels it "computed". |
-| `uncalled` | `committedCapital − contributions` | `committedCapital` is a fund term entered in the app, `contributions` is from the fund-level snapshot. |
-| `pctCalled` | `contributions / committedCapital` | |
+| `uncalled` | `commitments − contributions` | both from the fund-level snapshot: accounting's "Total Commitments" and "Called Capital" (Fund Total column). |
+| `pctCalled` | `contributions / commitments` | |
 | `unrealizedGain` | `nav − cost` | |
 
-Reported MOIC and IRR are never recomputed; they are displayed as imported.
+Reported MOIC and IRR are never recomputed; they are displayed as imported. At fund level
+the workbook reports three bases (Fund Gross, Fund Net, Total Fund); all three are stored
+and shown, with Net (what LPs receive) leading on the fund pages.
+
+Investment-level `contributions` and `distributions` are sums of accounting's own cash-flow
+rows on the IRR Detail tab (negative flows and positive flows respectively, excluding the
+terminal "Current Value" row). They are the exact inputs to accounting's MOIC formula, and
+the import reconciliation re-derives each reported MOIC from them as a check.
 
 ## Roll-ups (`returns.ts`)
 

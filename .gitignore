@@ -12,3 +12,8 @@ storage/imports/*
 *.tsbuildinfo
 next-env.d.ts
 coverage
+
+# Accounting workbooks and brand decks contain real fund / LP data: keep them local only.
+samples/*.xlsx
+samples/brand/*.pptx
+samples/brand/*.pdf

@@ -6,13 +6,12 @@
 // seed honest and gives you two files to re-import by hand.
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import ExcelJS from "exceljs";
 import { PrismaClient } from "@prisma/client";
 import { ingestWorkbook } from "../lib/import/ingest";
 import { commitBatch } from "../lib/import/commit";
 import { resolveWorkbook, type UserResolutions } from "../lib/import/match";
 import type { ParsedWorkbook } from "../lib/import/parser";
-import { FUND_COLUMNS, INVESTMENT_COLUMNS } from "../lib/import/schema";
+import { buildExcel, type HoldingSpec, type WorkbookSpec } from "../lib/import/build";
 import { planInitialEvents } from "../lib/pipeline/stageEvents";
 
 const prisma = new PrismaClient();
@@ -36,8 +35,8 @@ const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86_400_000);
 
 const TEAM = (process.env.TEAM_MEMBERS ?? "Sean,Avery,Morgan").split(",").map((s) => s.trim()).filter(Boolean);
 const TODAY = new Date();
-const SNAPSHOT_1 = "2026-06-30";
-const SNAPSHOT_2 = "2026-07-31";
+const SNAPSHOT_1 = "2026-05-31";
+const SNAPSHOT_2 = "2026-06-30";
 
 const SECTORS: Record<string, string[]> = {
   Energy: ["Midstream", "Oilfield services", "Power generation", "Renewables", "Minerals & royalties"],
@@ -60,10 +59,10 @@ async function main() {
 
   // ---------- Funds ----------
   const fundDefs = [
-    { name: "Demo Fund I", vintage: 2021, committedCapital: 250_000_000, status: "harvesting", externalId: "DF-I" },
-    { name: "Demo Fund II", vintage: 2023, committedCapital: 400_000_000, status: "investing", externalId: "DF-II" },
-    { name: "Demo Fund III", vintage: 2025, committedCapital: 500_000_000, status: "investing", externalId: "DF-III" },
-    { name: "Demo Fund IV", vintage: 2026, committedCapital: 600_000_000, status: "investing", externalId: null },
+    { name: "Demo Advantage Partners I LP", vintage: 2021, committedCapital: 250_000_000, status: "harvesting", externalId: null },
+    { name: "Demo Advantage Partners II LP", vintage: 2023, committedCapital: 400_000_000, status: "investing", externalId: null },
+    { name: "Demo Advantage Partners III LP", vintage: 2025, committedCapital: 500_000_000, status: "investing", externalId: null },
+    { name: "Demo Advantage Partners IV LP", vintage: 2026, committedCapital: 600_000_000, status: "investing", externalId: null },
   ];
   const funds: Awaited<ReturnType<typeof prisma.fund.create>>[] = [];
   for (const f of fundDefs) {
@@ -73,8 +72,8 @@ async function main() {
       }),
     );
   }
-  // Fund IV has no accounting ID yet → matched by name mapping.
-  await prisma.nameMapping.create({ data: { sourceName: "Demo Fund IV", level: "fund", fundId: funds[3].id } });
+  // Accounting's workbook identifies the fund by name → one mapping per fund.
+  for (const f of funds) await prisma.nameMapping.create({ data: { sourceName: f.name, level: "fund", fundId: f.id } });
 
   // ---------- Investments (36 now; #37 arrives in the July import) ----------
   const perFund = [14, 12, 8, 2];
@@ -93,7 +92,7 @@ async function main() {
       const entryDate = utc(Math.min(entryYear, 2026), Math.ceil(between(1, fi === 3 ? 8 : 12)), Math.ceil(between(1, 28)));
       const ageYears = (utc(2026, 7, 31).getTime() - entryDate.getTime()) / (365.25 * 86_400_000);
       const realized = fi === 0 && k < 3;
-      const withId = !(fi === 0 && k >= 11) && fi !== 3; // a few legacy names + Fund IV rows have no accounting ID
+      const withId = false; // accounting's workbook carries no IDs; holdings match by name mapping
       const cost = round(between(8, 55) * 1_000_000, 0);
       const inv = await prisma.investment.create({
         data: {
@@ -104,14 +103,15 @@ async function main() {
           entryDate,
           ownershipPct: round(between(15, 85), 1),
           status: realized ? "realized" : "active",
-          externalId: withId ? `INV-${String(seq).padStart(3, "0")}` : null,
+          externalId: null,
           contacts: `${pick(["Jamie", "Taylor", "Casey", "Riley", "Drew"])} ${pick(["Chen", "Okafor", "Patel", "Nguyen", "Garcia"])} — CEO\n${pick(["Sam", "Alex", "Jordan"])} ${pick(["Kim", "Lopez", "Schmidt"])} — CFO`,
           notes: realized ? "Exited. Demo data." : pick(["Board seat held.", "Add-on pipeline active.", "Refinancing under review.", "Demo data."]),
         },
       });
-      if (!withId) await prisma.nameMapping.create({ data: { sourceName: name, level: "investment", investmentId: inv.id } });
+      await prisma.nameMapping.create({ data: { sourceName: name, level: "investment", investmentId: inv.id } });
       investments.push({ id: inv.id, name, fundIdx: fi, bucket, externalId: inv.externalId, status: inv.status, entryDate, cost, ageYears: Math.max(ageYears, 0.1) });
       seq++;
+      void withId;
     }
   }
 
@@ -221,82 +221,109 @@ async function main() {
     });
   }
 
-  // ---------- Two months of accounting workbooks → real import path ----------
-  // Figures per investment for month 1, drifted for month 2.
+  // ---------- Two months of accounting workbooks (one per fund) → real import path ----------
+  // Per-holding figures for month 1, then drifted for month 2. Everything is internally
+  // consistent the way accounting's file is: MOIC = (distributions + NAV) / contributions.
+  type Fig = { cost: number | null; contributions: number; distributions: number; nav: number | null; irr: number | null; moic: number | null; closed: boolean };
   const figures = investments.map((inv) => {
-    const contributions = round(inv.cost * between(1.0, 1.08), 0);
     const realized = inv.status === "realized";
+    const contributions = round(inv.cost * between(1.0, 1.08), 0);
     const distributions = realized ? round(inv.cost * between(1.6, 2.6), 0) : inv.ageYears > 2 ? round(inv.cost * between(0, 0.4), 0) : 0;
-    const nav = realized ? 0 : round(inv.cost * between(0.85, 1.9), 0);
-    const moic = round((distributions + nav) / inv.cost, 2);
+    const nav = realized ? null : round(inv.cost * between(0.85, 1.9), 0);
+    const moic = round((distributions + (nav ?? 0)) / contributions, 4);
     const irr = round(Math.max(-0.3, Math.min(0.6, (moic - 1) / Math.max(inv.ageYears, 0.75))), 4);
-    return { inv, m1: { cost: inv.cost, contributions, distributions, nav, irr, moic } };
+    return { inv, m1: { cost: realized ? null : inv.cost, contributions, distributions, nav, irr, moic, closed: realized } as Fig };
   });
-
-  type Fig = { cost: number | null; contributions: number | null; distributions: number | null; nav: number | null; irr: number | null; moic: number | null };
   const month2 = figures.map(({ inv, m1 }, idx) => {
     const drift = idx === 4 ? 1.22 : idx === 9 ? 0.78 : between(0.97, 1.05); // two big mark moves to flag in preview
-    const nav = m1.nav === 0 ? 0 : round(m1.nav * drift, 0);
-    const f: Fig = { ...m1, nav, moic: round((m1.distributions + nav) / m1.cost, 2) };
-    if (idx === 7) f.irr = null; // deliberately missing in July → shows "—" with tooltip
+    const nav = m1.nav === null ? null : round(m1.nav * drift, 0);
+    const f: Fig = { ...m1, nav, moic: round((m1.distributions + (nav ?? 0)) / m1.contributions, 4) };
+    if (idx === 7) f.irr = null; // deliberately blank in July → shows "—" with tooltip
     if (idx === 12) f.moic = null;
     return { inv, f };
   });
-  // Investment #37 appears for the first time in July (new investment in Fund III).
-  const newInv = { name: "Lantern Field Services", fundIdx: 2, externalId: "INV-999", f: { cost: 22_000_000, contributions: 22_000_000, distributions: 0, nav: 22_000_000, irr: null, moic: 1.0 } as Fig };
+  // Holding #37 appears for the first time in July (new holding in Fund III).
+  const newInv = { name: "Lantern Field Services", fundIdx: 2, entryDate: utc(2026, 7, 15), f: { cost: 22_000_000, contributions: 22_000_000, distributions: 0, nav: 22_000_000, irr: null, moic: 1.0, closed: false } as Fig };
 
-  async function buildWorkbook(asOf: string, rows: { inv: { name: string; fundIdx: number; externalId: string | null }; f: Fig }[], fundVarianceIdx: number | null) {
-    const wb = new ExcelJS.Workbook();
-    const asOfDate = new Date(`${asOf}T00:00:00Z`);
-    const fundsWs = wb.addWorksheet("Funds");
-    fundsWs.addRow(Object.values(FUND_COLUMNS));
-    const invWs = wb.addWorksheet("Investments");
-    invWs.addRow([...Object.values(INVESTMENT_COLUMNS), "Unrealized Gain"]);
-    for (let fi = 0; fi < funds.length; fi++) {
-      const mine = rows.filter((r) => r.inv.fundIdx === fi);
-      const sum = (k: keyof Fig) => mine.reduce((a, r) => a + (r.f[k] ?? 0), 0);
-      const contributions = sum("contributions");
-      const distributions = sum("distributions");
-      const nav = sum("nav") + (fundVarianceIdx === fi ? 2500 : 0); // deliberate reconciliation variance
-      const cost = sum("cost");
-      fundsWs.addRow([
-        funds[fi].externalId,
-        funds[fi].name,
-        asOfDate,
-        cost,
-        contributions,
-        distributions,
-        nav,
-        mine.length ? round((distributions + nav) / Math.max(contributions, 1) - 1, 4) / 2 : null,
-        mine.length ? round((distributions + nav) / Math.max(contributions, 1), 2) : null,
-      ]);
+  function holdingSpec(name: string, entryDate: Date, f: Fig, asOf: Date): HoldingSpec {
+    // Contributions as 1–3 negative flows after entry; distributions as positive flows.
+    const n = f.contributions > 30_000_000 ? 3 : f.contributions > 12_000_000 ? 2 : 1;
+    const flows: HoldingSpec["flows"] = [];
+    let remaining = f.contributions;
+    for (let i = 0; i < n; i++) {
+      const amt = i === n - 1 ? remaining : round(f.contributions / n, 2);
+      remaining = round(remaining - amt, 2);
+      flows.push({ date: addDays(entryDate, i * 90), cash: -amt });
     }
-    for (const r of rows) {
-      const fund = funds[r.inv.fundIdx];
-      invWs.addRow([
-        r.inv.externalId,
-        r.inv.name,
-        fund.externalId,
-        fund.name,
-        asOfDate,
-        r.f.cost,
-        r.f.contributions,
-        r.f.distributions,
-        r.f.nav,
-        r.f.irr,
-        r.f.moic,
-        r.f.nav !== null && r.f.cost !== null ? r.f.nav - r.f.cost : null,
-      ]);
+    if (f.distributions > 0) {
+      const half = round(f.distributions / 2, 2);
+      flows.push({ date: addDays(entryDate, 400), cash: half }, { date: addDays(entryDate, 700), cash: round(f.distributions - half, 2) });
     }
-    const dir = path.resolve(process.env.STORAGE_DIR || "./storage", "imports", "demo");
-    await mkdir(dir, { recursive: true });
-    const file = path.join(dir, `Demo_Accounting_${asOf}.xlsx`);
-    await wb.xlsx.writeFile(file);
-    return { file, buffer: Buffer.from(await wb.xlsx.writeBuffer()) };
+    return {
+      name,
+      valuationDate: f.closed ? "Closed" : new Date(Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth() - (rand() < 0.5 ? 0 : 3) + 1, 0)),
+      nav: f.closed ? null : f.nav,
+      irr: f.irr,
+      moic: f.moic,
+      cost: f.cost,
+      type: pick(["JV Interest", "Other Fund", "Direct"]),
+      flows,
+    };
   }
 
-  async function importFile(asOf: string, rows: { inv: { name: string; fundIdx: number; externalId: string | null }; f: Fig }[], varianceIdx: number | null, extraResolutions?: (parsed: ParsedWorkbook) => UserResolutions) {
-    const { file, buffer } = await buildWorkbook(asOf, rows, varianceIdx);
+  function fundSpec(fi: number, asOf: string, rows: { inv: { name: string; fundIdx: number; entryDate: Date }; f: Fig }[], calledVariance: number): WorkbookSpec {
+    const asOfDate = new Date(`${asOf}T00:00:00Z`);
+    const mine = rows.filter((r) => r.inv.fundIdx === fi);
+    const holdings = mine.map((r) => holdingSpec(r.inv.name, r.inv.entryDate, r.f, asOfDate));
+    const sum = (k: "contributions" | "distributions") => mine.reduce((a, r) => a + r.f[k], 0);
+    const navSum = mine.reduce((a, r) => a + (r.f.nav ?? 0), 0);
+    const called = round(sum("contributions") * 1.04, 0); // fund calls a little more than it invests (fees, expenses)
+    const distributions = round(sum("distributions") * 0.97, 0); // after carry / expenses
+    const nav = round(navSum + called * 0.02, 0); // plus cash held at the fund
+    const redemptions = round(called * 0.002, 0);
+    const commitments = funds[fi].committedCapital!;
+    const split = (v: number, gp = 0): { nonAffiliate: number; affiliate: number; gpCarry: number | null; total: number } => {
+      const gpPart = round(v * gp, 0);
+      const na = round((v - gpPart) * 0.93, 0);
+      return { nonAffiliate: na, affiliate: v - gpPart - na, gpCarry: gp ? gpPart : null, total: v };
+    };
+    const totalValue = distributions + redemptions + nav;
+    const tvpi = called ? totalValue / called : null;
+    const measures: WorkbookSpec["measures"] = {
+      commitments: split(commitments),
+      called: { ...split(called), total: called + calledVariance }, // calledVariance ≠ 0 → classes don't add up (flagged)
+      distributions: split(distributions, 0.08),
+      redemptions: split(redemptions, 0.02),
+      nav: split(nav, 0.06),
+      totalValue: split(totalValue, 0.07),
+    };
+    const age = Math.max((asOfDate.getTime() - utc(funds[fi].vintage, 6, 1).getTime()) / (365.25 * 86_400_000), 0.75);
+    const irrOf = (m: number | null) => (m === null ? null : round(Math.max(-0.3, Math.min(0.6, (m - 1) / age)), 4));
+    return {
+      fundName: funds[fi].name,
+      asOf: asOfDate,
+      returns: {
+        gross: [irrOf(tvpi === null ? null : tvpi * 1.08), tvpi === null ? null : round(tvpi * 1.08, 4)],
+        net: [irrOf(tvpi === null ? null : tvpi * 0.92), tvpi === null ? null : round(tvpi * 0.92, 4)],
+        total: [irrOf(tvpi), tvpi === null ? null : round(tvpi, 4)],
+      },
+      measures,
+      holdings,
+      portfolioNavTotal: "sum",
+      mtmTotalCost: "sum",
+    };
+  }
+
+  async function importFund(fi: number, asOf: string, rows: { inv: { name: string; fundIdx: number; entryDate: Date }; f: Fig }[], calledVariance: number, extraResolutions?: (parsed: ParsedWorkbook) => UserResolutions) {
+    const spec = fundSpec(fi, asOf, rows, calledVariance);
+    if (spec.holdings.length === 0) return;
+    const wb = await buildExcel(spec);
+    const dir = path.resolve(process.env.STORAGE_DIR || "./storage", "imports", "demo");
+    await mkdir(dir, { recursive: true });
+    const short = ["I", "II", "III", "IV"][fi];
+    const file = path.join(dir, `${asOf.replace(/-/g, "")}_DAP${short}_TB_Analysis.xlsx`);
+    await wb.xlsx.writeFile(file);
+    const buffer = Buffer.from(await wb.xlsx.writeBuffer());
     const res = await ingestWorkbook(buffer, path.basename(file), "seed");
     if (res.status !== "pending") throw new Error(`Seed workbook failed to parse:\n${res.problems?.join("\n")}`);
     if (extraResolutions) {
@@ -309,22 +336,27 @@ async function main() {
     }
     const out = await commitBatch(res.batchId);
     // Backdate the log entries so the history reads naturally.
-    await prisma.importBatch.update({ where: { id: res.batchId }, data: { uploadedAt: addDays(new Date(`${asOf}T00:00:00Z`), 9), committedAt: addDays(new Date(`${asOf}T00:00:00Z`), 9) } });
+    const stamp = addDays(new Date(`${asOf}T00:00:00Z`), 9 + fi);
+    await prisma.importBatch.update({ where: { id: res.batchId }, data: { uploadedAt: stamp, committedAt: stamp } });
     console.log(`Imported ${path.basename(file)}: ${out.snapshots} snapshots, ${out.createdInvestments} new investment(s)`);
   }
 
-  // Committed capital (a fund term, not accounting data) sized above what the demo has called.
+  // Committed capital (a fund term) sized above what the demo has called.
   for (let fi = 0; fi < funds.length; fi++) {
-    const called = figures.filter((f) => f.inv.fundIdx === fi).reduce((a, f) => a + f.m1.contributions, 0) + (fi === 2 ? newInv.f.contributions! : 0);
+    const called = figures.filter((f) => f.inv.fundIdx === fi).reduce((a, f) => a + f.m1.contributions, 0) + (fi === 2 ? newInv.f.contributions : 0);
     const committed = Math.ceil((called * (fi === 0 ? 1.05 : fi === 3 ? 4 : 1.6)) / 25_000_000) * 25_000_000;
-    await prisma.fund.update({ where: { id: funds[fi].id }, data: { committedCapital: committed } });
+    funds[fi] = await prisma.fund.update({ where: { id: funds[fi].id }, data: { committedCapital: committed } });
   }
 
-  await importFile(SNAPSHOT_1, figures.map(({ inv, m1 }) => ({ inv, f: m1 })), null);
-  await importFile(SNAPSHOT_2, [...month2, { inv: newInv, f: newInv.f }], 1, (parsed) => {
-    const idx = parsed.investments.findIndex((r) => r.name === newInv.name);
-    return { funds: {}, investments: { [idx]: { createNew: true, bucket: "Energy" } } };
-  });
+  const m1rows = figures.map(({ inv, m1 }) => ({ inv, f: m1 }));
+  const m2rows = [...month2, { inv: newInv, f: newInv.f }];
+  for (let fi = 0; fi < funds.length; fi++) await importFund(fi, SNAPSHOT_1, m1rows, 0);
+  for (let fi = 0; fi < funds.length; fi++) {
+    await importFund(fi, SNAPSHOT_2, m2rows, fi === 1 ? 2_500 : 0, fi === 2 ? (parsed) => {
+      const idx = parsed.investments.findIndex((r) => r.name === newInv.name);
+      return { funds: {}, investments: { [idx]: { createNew: true, bucket: "Energy" } } };
+    } : undefined);
+  }
 
   const totals = {
     funds: await prisma.fund.count(),

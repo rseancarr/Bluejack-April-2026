@@ -62,6 +62,21 @@ export async function mapRow(batchId: string, level: "fund" | "investment", inde
   await saveResolutions(batchId, r);
 }
 
+/** The workbook's fund does not exist yet: create it (plus a name mapping) so the batch can resolve. */
+export async function createFundFromRow(batchId: string, sourceName: string, vintage: number): Promise<{ error?: string }> {
+  if (!Number.isInteger(vintage) || vintage < 1990 || vintage > 2100) return { error: "Enter the vintage year" };
+  const existing = await prisma.fund.findUnique({ where: { name: sourceName } });
+  const fund = existing ?? (await prisma.fund.create({ data: { name: sourceName, vintage, status: "investing" } }));
+  await prisma.nameMapping.upsert({
+    where: { sourceName },
+    create: { sourceName, level: "fund", fundId: fund.id },
+    update: { level: "fund", fundId: fund.id, investmentId: null },
+  });
+  revalidatePath(`/import/${batchId}`);
+  revalidatePath("/funds");
+  return {};
+}
+
 export async function markCreateNew(batchId: string, index: number, bucket: string) {
   if (!isBucket(bucket)) throw new Error("Invalid bucket");
   const r = await loadResolutions(batchId);

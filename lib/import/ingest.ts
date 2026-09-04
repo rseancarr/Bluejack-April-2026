@@ -26,6 +26,7 @@ export async function ingestWorkbook(buffer: Buffer, fileName: string, uploadedB
         uploadedBy,
         status: "pending",
         asOfDate: new Date(`${parsed.asOfDate}T00:00:00Z`),
+        fundName: parsed.funds[0].name,
         parsedJson: JSON.stringify(parsed),
         rowCount: parsed.funds.length + parsed.investments.length,
       },

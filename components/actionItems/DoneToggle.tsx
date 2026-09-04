@@ -7,7 +7,7 @@ export function DoneToggle({ id, done }: { id: string; done: boolean }) {
   return (
     <input
       type="checkbox"
-      className="h-3.5 w-3.5 cursor-pointer accent-ink"
+      className="h-3.5 w-3.5 cursor-pointer accent-navy"
       checked={done}
       disabled={pending}
       aria-label={done ? "Mark open" : "Mark done"}

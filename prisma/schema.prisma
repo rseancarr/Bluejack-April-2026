@@ -75,6 +75,8 @@ model ImportBatch {
   uploadedAt    DateTime  @default(now())
   uploadedBy    String?
   asOfDate      DateTime?
+  fundName      String?   // fund name as it appears in the workbook (one fund per workbook)
+  fundId        String?   // resolved fund, set at commit
   status        String    @default("pending") // pending | committed | failed | discarded
   committedAt   DateTime?
   errorMessage  String?
@@ -102,13 +104,29 @@ model FinancialSnapshot {
   fund          Fund?       @relation(fields: [fundId], references: [id])
 
   // Stored exactly as received. Null = absent from the workbook that batch came from.
+  // Investment level: cost (MTM), contributions/distributions (Σ IRR Detail cash flows),
+  //   nav/irr/moic (Dashboard holdings table).
+  // Fund level: contributions = Called Capital, distributions, nav = Remaining NAV, irr/moic = Total Fund.
   cost          Float?
   contributions Float?
   distributions Float?
   nav           Float?
   irr           Float?
   moic          Float?
+  // Fund level only (Dashboard "Fund Total" column and return-basis table)
+  commitments   Float?
+  redemptions   Float?
+  totalValue    Float?
+  irrGross      Float?
+  moicGross     Float?
+  irrNet        Float?
+  moicNet       Float?
+  classJson     String?     // measures by investor class {nonAffiliate|affiliate|gpCarry|total: {...}}
+  // Investment level only
+  valuationDate DateTime?   // date of the mark behind NAV (can lag the as-of date)
+  holdingStatus String?     // status word from the valuation-date cell, e.g. "Closed"
   extraJson     String?     // any additional workbook columns, verbatim {column: value}
+  sourcesJson   String?     // field → "Sheet!Cell" provenance
 
   sourceSheet   String
   sourceRow     Int

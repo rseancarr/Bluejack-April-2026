@@ -18,19 +18,19 @@ const fmtM = (v: number) => `$${(v / M).toLocaleString("en-US", { minimumFractio
  */
 export function HistoryChart({ data, height = 220, series = ["nav", "cost", "distributions"] }: { data: HistoryPoint[]; height?: number; series?: (keyof Omit<HistoryPoint, "asOf">)[] }) {
   if (data.length === 0) return <div className="muted py-8 text-center">No snapshots yet.</div>;
-  const colors: Record<string, string> = { nav: "#141414", cost: "#9a9a9a", distributions: "#2e6b3f", contributions: "#6b6b6b" };
+  const colors: Record<string, string> = { nav: "#080e3e", cost: "#9a938a", distributions: "#d9814e", contributions: "#7394b2" };
   const labels: Record<string, string> = { nav: "NAV", cost: "Cost", distributions: "Distributions", contributions: "Contributions" };
   return (
     <div>
       <div style={{ width: "100%", height }}>
       <ResponsiveContainer>
         <LineChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
-          <CartesianGrid stroke="#eeece8" vertical={false} />
-          <XAxis dataKey="asOf" tick={{ fontSize: 11, fill: "#6b6b6b" }} tickLine={false} axisLine={{ stroke: "#e3e1dc" }} />
+          <CartesianGrid stroke="#ddd5c9" vertical={false} />
+          <XAxis dataKey="asOf" tick={{ fontSize: 11, fill: "#6b6b6b" }} tickLine={false} axisLine={{ stroke: "#ddd5c9" }} />
           <YAxis tickFormatter={fmtM} tick={{ fontSize: 11, fill: "#6b6b6b" }} tickLine={false} axisLine={false} width={64} />
           <Tooltip
             formatter={(v: unknown, name: unknown) => [typeof v === "number" ? fmtM(v) : "—", labels[String(name)] ?? String(name)]}
-            contentStyle={{ fontSize: 12, border: "1px solid #e3e1dc", borderRadius: 3 }}
+            contentStyle={{ fontSize: 12, border: "1px solid #ddd5c9", borderRadius: 3 }}
           />
           {series.map((s) => (
             <Line key={s} type="linear" dataKey={s} name={s} stroke={colors[s]} strokeWidth={s === "nav" ? 2 : 1.25} dot={{ r: 2.5 }} connectNulls={false} isAnimationActive={false} />

@@ -1,88 +1,108 @@
-// Reconciliation of investment-level sums vs fund-level figures in the same workbook.
+// Reconciliation checks over a parsed workbook. Every check reproduces arithmetic the
+// workbook itself performs (or should), so a flag means the file is internally inconsistent.
 import { RECONCILIATION_TOLERANCE_USD } from "../constants";
-import { sumStrict } from "../metrics/returns";
-import type { ParsedRow } from "./parser";
+import { sumAvailable } from "../metrics/returns";
+import type { ParsedWorkbook } from "./parser";
+import { DASHBOARD } from "./schema";
+import type { MeasureKey } from "./parser";
 
-export const RECONCILED_FIELDS = ["cost", "contributions", "distributions", "nav"] as const;
-export type ReconciledField = (typeof RECONCILED_FIELDS)[number];
-
-export interface FieldVariance {
-  field: ReconciledField;
-  fundValue: number | null;
-  investmentSum: number | null;
-  /** number of investment rows missing this field (sum is null when > 0) */
-  missing: number;
-  /** fundValue − investmentSum; null if either side is null */
+export interface Check {
+  key: string;
+  label: string;
+  left: number | null;
+  leftLabel: string;
+  right: number | null;
+  rightLabel: string;
+  /** left − right; null when either side is null */
   variance: number | null;
+  /** "match" = should be zero; "info" = an expected difference, shown but never flagged */
+  kind: "match" | "info";
   flagged: boolean;
+  note?: string;
+}
+
+export interface HoldingCheck {
+  name: string;
+  reportedMoic: number | null;
+  computedMoic: number | null;
+  variancePct: number | null;
+  flagged: boolean;
+  note?: string;
 }
 
 export interface FundReconciliation {
-  fundKey: string; // fund external ID if present, else fund name (as in workbook)
+  fundKey: string;
   fundName: string;
   investmentCount: number;
-  fields: FieldVariance[];
+  checks: Check[];
+  holdingChecks: HoldingCheck[];
   flagged: boolean;
-  /** true if a fund row had no investment rows, or investment rows referenced a fund with no fund row */
-  orphan: "no-investments" | "no-fund-row" | null;
 }
 
-function fundKeyOf(row: { externalId: string | null; name: string }) {
-  return row.externalId ? `id:${row.externalId}` : `name:${row.name.toLowerCase()}`;
-}
-function investmentFundKeyOf(row: ParsedRow) {
-  return row.fundExternalId ? `id:${row.fundExternalId}` : `name:${(row.fundName ?? "").toLowerCase()}`;
+const MEASURE_LABELS: Record<MeasureKey, string> = {
+  commitments: "Total Commitments",
+  called: "Called Capital",
+  distributions: "Distributions",
+  redemptions: "Redemptions",
+  nav: "Remaining NAV",
+  totalValue: "Total Value",
+};
+
+function check(key: string, label: string, left: number | null, leftLabel: string, right: number | null, rightLabel: string, kind: Check["kind"], tolerance: number, note?: string): Check {
+  const variance = left === null || right === null ? null : left - right;
+  return { key, label, left, leftLabel, right, rightLabel, variance, kind, flagged: kind === "match" && variance !== null && Math.abs(variance) > tolerance, note };
 }
 
-/**
- * Sum investment rows per fund and compare to the fund row. Investment rows are grouped
- * by Fund ID when present on both sheets, otherwise by Fund Name (case-insensitive).
- */
-export function reconcile(funds: ParsedRow[], investments: ParsedRow[], tolerance = RECONCILIATION_TOLERANCE_USD): FundReconciliation[] {
-  const groups = new Map<string, ParsedRow[]>();
-  for (const inv of investments) {
-    const key = investmentFundKeyOf(inv);
-    const list = groups.get(key) ?? [];
-    list.push(inv);
-    groups.set(key, list);
+/** Relative tolerance for reported vs recomputed MOIC (the workbook's own formula). */
+export const MOIC_CHECK_TOLERANCE = 0.005;
+
+export function reconcile(parsed: ParsedWorkbook, tolerance = RECONCILIATION_TOLERANCE_USD): FundReconciliation[] {
+  const fund = parsed.funds[0];
+  const holdings = parsed.investments;
+  const checks: Check[] = [];
+
+  // 1. Σ holding NAV vs the dashboard's own "Total / Portfolio" NAV (reproduces its SUM).
+  const navSum = sumAvailable(holdings.map((h) => h.fields.nav));
+  checks.push(
+    check("portfolio-nav", "Σ holding NAV vs dashboard portfolio total", navSum.sum, "Σ holdings", parsed.portfolioNavTotal, `dashboard "${DASHBOARD.holdingTotalPrefix}" row`, "match", tolerance, navSum.missing ? `${navSum.missing} holding(s) have no NAV (realized)` : undefined),
+  );
+  // 2. Fund NAV vs Σ holding NAV — expected to differ (cash, accruals, fees, GP carry).
+  checks.push(check("fund-vs-portfolio", "Fund Remaining NAV vs Σ holding NAV", fund.fields.nav, "fund Remaining NAV", navSum.sum, "Σ holdings", "info", tolerance, "difference = cash, accruals, fees and GP carry held outside the holdings"));
+  // 3. Σ holding cost vs MTM total row.
+  const costSum = sumAvailable(holdings.map((h) => h.fields.cost));
+  checks.push(check("mtm-cost", "Σ holding cost vs MTM total", costSum.sum, "Σ holdings", parsed.mtmTotalCost, "MTM Total row", "match", tolerance, costSum.missing ? `${costSum.missing} holding(s) have no cost (not on MTM)` : undefined));
+  // 4. Investor classes add up to Fund Total for every measure.
+  for (const mk of Object.keys(MEASURE_LABELS) as MeasureKey[]) {
+    const c = fund.classes;
+    const parts = [c.nonAffiliate[mk], c.affiliate[mk], c.gpCarry[mk]];
+    const s = sumAvailable(parts);
+    checks.push(check(`class-${mk}`, `${MEASURE_LABELS[mk]}: classes vs Fund Total`, s.sum, "Non-Affiliate + Affiliate + GP Carry", c.total[mk], "Fund Total", "match", tolerance, s.missing ? `${s.missing} class cell(s) blank` : undefined));
   }
+  // 5. Total Value = Distributions + Redemptions + Remaining NAV.
+  const t = fund.classes.total;
+  const tv = sumAvailable([t.distributions, t.redemptions, t.nav]);
+  checks.push(check("total-value", "Total Value vs Distributions + Redemptions + NAV", t.totalValue, "Total Value", tv.missing ? null : tv.sum, "sum of components", "match", tolerance));
 
-  const out: FundReconciliation[] = [];
-  const seen = new Set<string>();
-  for (const fund of funds) {
-    const key = fundKeyOf(fund);
-    seen.add(key);
-    const invs = groups.get(key) ?? [];
-    const fields: FieldVariance[] = RECONCILED_FIELDS.map((field) => {
-      const fundValue = fund.fields[field];
-      const s = sumStrict(invs.map((i) => i.fields[field]));
-      const investmentSum = invs.length === 0 ? null : s.sum;
-      const variance = fundValue === null || investmentSum === null ? null : fundValue - investmentSum;
-      const flagged = variance !== null && Math.abs(variance) > tolerance;
-      return { field, fundValue, investmentSum, missing: s.missing, variance, flagged };
-    });
-    out.push({
-      fundKey: key,
+  // 6. Per holding: reported MOIC vs (distributions + NAV) ÷ contributions from the cash flows.
+  const holdingChecks: HoldingCheck[] = holdings.map((h) => {
+    const { contributions, distributions, nav, moic } = h.fields;
+    if (contributions === null || distributions === null || moic === null) {
+      return { name: h.name, reportedMoic: moic, computedMoic: null, variancePct: null, flagged: false, note: "not checkable (missing cash flows or MOIC)" };
+    }
+    if (contributions === 0) return { name: h.name, reportedMoic: moic, computedMoic: null, variancePct: null, flagged: false, note: "no contributions" };
+    const computed = (distributions + (nav ?? 0)) / contributions;
+    const variancePct = moic === 0 ? null : (computed - moic) / Math.abs(moic);
+    return { name: h.name, reportedMoic: moic, computedMoic: computed, variancePct, flagged: variancePct !== null && Math.abs(variancePct) > MOIC_CHECK_TOLERANCE, note: nav === null ? "NAV blank treated as 0 (realized)" : undefined };
+  });
+
+  return [
+    {
+      fundKey: `name:${fund.name.toLowerCase()}`,
       fundName: fund.name,
-      investmentCount: invs.length,
-      fields,
-      flagged: fields.some((f) => f.flagged),
-      orphan: invs.length === 0 ? "no-investments" : null,
-    });
-  }
-  for (const [key, invs] of groups) {
-    if (seen.has(key)) continue;
-    out.push({
-      fundKey: key,
-      fundName: invs[0].fundName ?? invs[0].fundExternalId ?? key,
-      investmentCount: invs.length,
-      fields: RECONCILED_FIELDS.map((field) => {
-        const s = sumStrict(invs.map((i) => i.fields[field]));
-        return { field, fundValue: null, investmentSum: s.sum, missing: s.missing, variance: null, flagged: false };
-      }),
-      flagged: true,
-      orphan: "no-fund-row",
-    });
-  }
-  return out;
+      investmentCount: holdings.length,
+      checks,
+      holdingChecks,
+      flagged: checks.some((c) => c.flagged) || holdingChecks.some((h) => h.flagged),
+    },
+  ];
 }

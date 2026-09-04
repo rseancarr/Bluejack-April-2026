@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { fmtDate, fmtMoneyM, fmtMultiple, fmtPct, fmtRatioPct } from "@/lib/format";
 import { dpi, pctCalled, sumStrict, tvpi, uncalled } from "@/lib/metrics/returns";
-import { fundHistory, latestBatch, latestFundSnapshots, latestInvestmentSnapshots, missingReason } from "@/lib/queries/snapshots";
+import { fundHistory, latestBatches, latestFundSnapshots, latestInvestmentSnapshots, missingReason } from "@/lib/queries/snapshots";
 import { toHistoryPoints } from "@/lib/queries/history";
 import { actionItemInclude, sortByUrgency } from "@/lib/queries/actionItems";
 import { IRR_SCALE } from "@/lib/import/schema";
@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/ui/Badge";
 import { ItemsTable } from "@/components/actionItems/ItemsTable";
 import { FundEditForm } from "./FundEditForm";
 import type { FundReconciliation } from "@/lib/import/reconcile";
+import { ReconciliationPanel } from "@/components/import/ReconciliationPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -22,10 +23,11 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const fund = await prisma.fund.findUnique({ where: { id }, include: { investments: { orderBy: { name: "asc" } } } });
   if (!fund) notFound();
-  const batch = await latestBatch();
+  const latest = await latestBatches();
+  const batch = latest.byFund.get(id) ?? null;
   const [fundSnaps, invSnaps, history, items] = await Promise.all([
-    latestFundSnapshots(batch),
-    latestInvestmentSnapshots(batch),
+    latestFundSnapshots(latest),
+    latestInvestmentSnapshots(latest),
     fundHistory(id),
     prisma.actionItem.findMany({ where: { fundId: id, status: "open" }, include: actionItemInclude }),
   ]);
@@ -41,7 +43,10 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
     distributions: sumStrict(invRows.map((r) => r?.distributions)),
     contributions: sumStrict(invRows.map((r) => r?.contributions)),
   };
-  const variance = batch?.varianceJson ? (JSON.parse(batch.varianceJson) as FundReconciliation[]).find((v) => v.fundName === fund.name || (fund.externalId && v.fundKey === `id:${fund.externalId}`)) : undefined;
+  const sBatch = s ? await prisma.importBatch.findUnique({ where: { id: s.batchId } }) : null;
+  const variances = sBatch?.varianceJson ? (JSON.parse(sBatch.varianceJson) as FundReconciliation[]) : [];
+  const committed = s?.commitments ?? null; // accounting's Total Commitments; fund.committedCapital is the manual LPA figure
+  const classes = s?.classJson ? (JSON.parse(s.classJson) as Record<"nonAffiliate" | "affiliate" | "gpCarry" | "total", Record<"commitments" | "called" | "distributions" | "redemptions" | "nav" | "totalValue", number | null>>) : null;
 
   return (
     <div className="space-y-6">
@@ -51,12 +56,12 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 md:gap-3">
-        <Kpi label="Committed" value={<Fig value={fund.committedCapital} fmt={fmtMoneyM} missing="Set committed capital below." />} />
-        <Kpi label="Called" value={<Fig value={s?.contributions} fmt={fmtMoneyM} missing={missingReason(s, "Contributions", batch)} />} sub={<Fig value={pctCalled(fund.committedCapital, s?.contributions)} fmt={fmtRatioPct} missing="needs committed + called" />} />
-        <Kpi label="Uncalled" value={<Fig value={uncalled(fund.committedCapital, s?.contributions)} fmt={fmtMoneyM} missing="Needs committed capital and imported contributions." />} />
-        <Kpi label="NAV" value={<Fig value={s?.nav} fmt={fmtMoneyM} missing={missingReason(s, "NAV", batch)} />} />
-        <Kpi label="DPI" value={<Fig value={dpi(s?.distributions, s?.contributions)} fmt={fmtMultiple} missing="distributions ÷ contributions; an input is missing" />} sub="computed" />
-        <Kpi label="TVPI" value={<Fig value={tvpi(s?.distributions, s?.nav, s?.contributions)} fmt={fmtMultiple} missing="(distributions + NAV) ÷ contributions; an input is missing" />} sub={<>reported IRR <Fig value={s?.irr} fmt={irrFmt} missing={missingReason(s, "IRR", batch)} /> · MOIC <Fig value={s?.moic} fmt={fmtMultiple} missing={missingReason(s, "MOIC", batch)} /></>} />
+        <Kpi label="Commitments" value={<Fig value={committed} fmt={fmtMoneyM} missing={missingReason(s, "Total Commitments", batch)} />} sub="accounting" />
+        <Kpi label="Called" value={<Fig value={s?.contributions} fmt={fmtMoneyM} missing={missingReason(s, "Called Capital", batch)} />} sub={<Fig value={pctCalled(committed, s?.contributions)} fmt={fmtRatioPct} missing="needs commitments + called" />} />
+        <Kpi label="Uncalled" value={<Fig value={uncalled(committed, s?.contributions)} fmt={fmtMoneyM} missing="Needs commitments and called capital from the latest import." />} sub="commitments − called" />
+        <Kpi label="Remaining NAV" value={<Fig value={s?.nav} fmt={fmtMoneyM} missing={missingReason(s, "Remaining NAV", batch)} />} sub={<>total value <Fig value={s?.totalValue} fmt={fmtMoneyM} missing={missingReason(s, "Total Value", batch)} /></>} />
+        <Kpi label="DPI" value={<Fig value={dpi(s?.distributions, s?.contributions)} fmt={fmtMultiple} missing="distributions ÷ called; an input is missing" />} sub={<>distributions <Fig value={s?.distributions} fmt={fmtMoneyM} missing={missingReason(s, "Distributions", batch)} /></>} />
+        <Kpi label="Net IRR / MOIC" value={<><Fig value={s?.irrNet} fmt={irrFmt} missing={missingReason(s, "Fund Net IRR", batch)} /> · <Fig value={s?.moicNet} fmt={fmtMultiple} missing={missingReason(s, "Fund Net MOIC", batch)} /></>} sub={<>gross <Fig value={s?.irrGross} fmt={irrFmt} missing={missingReason(s, "Fund Gross IRR", batch)} /> · <Fig value={s?.moicGross} fmt={fmtMultiple} missing={missingReason(s, "Fund Gross MOIC", batch)} /> · total fund <Fig value={s?.irr} fmt={irrFmt} missing={missingReason(s, "Total Fund IRR", batch)} /> · <Fig value={s?.moic} fmt={fmtMultiple} missing={missingReason(s, "Total Fund MOIC", batch)} /></>} />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -65,34 +70,45 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
           <div className="card-b"><HistoryChart data={toHistoryPoints(history)} series={["nav", "contributions", "distributions"]} /></div>
         </section>
         <section className="card">
-          <div className="card-h"><h2>Fund-level vs. sum of investments</h2></div>
+          <div className="card-h"><h2>By investor class</h2><span className="muted">as reported</span></div>
           <div className="card-b">
-            <table className="w-full text-[12.5px]">
-              <thead><tr className="muted"><th className="text-left font-medium">Field</th><th className="num font-medium">Fund row</th><th className="num font-medium">Σ investments</th><th className="num font-medium">Var.</th></tr></thead>
-              <tbody>
-                {(["cost", "contributions", "distributions", "nav"] as const).map((k) => {
-                  const v = variance?.fields.find((f) => f.field === k);
-                  return (
-                    <tr key={k} className={v?.flagged ? "text-neg" : ""}>
-                      <td className="py-1 capitalize">{k === "nav" ? "NAV" : k}</td>
-                      <td className="num"><Fig value={s?.[k]} fmt={fmtMoneyM} missing={missingReason(s, k, batch)} /></td>
-                      <td className="num"><Fig value={roll[k].sum} fmt={fmtMoneyM} missing={roll[k].missing ? `${roll[k].missing} investment(s) missing ${k} in the latest import — no partial sum.` : "No investment rows in the latest import."} /></td>
-                      <td className="num"><Fig value={v?.variance ?? null} fmt={fmtMoneyM} missing="Not reconcilable (a side is missing)." /></td>
+            {classes ? (
+              <table className="w-full text-[12.5px]">
+                <thead><tr className="muted"><th className="text-left font-medium">Measure</th><th className="num font-medium">Non-Affil.</th><th className="num font-medium">Affiliate</th><th className="num font-medium">GP Carry</th><th className="num font-medium">Total</th></tr></thead>
+                <tbody>
+                  {(["commitments", "called", "distributions", "redemptions", "nav", "totalValue"] as const).map((k) => (
+                    <tr key={k}>
+                      <td className="py-1">{{ commitments: "Commitments", called: "Called", distributions: "Distributions", redemptions: "Redemptions", nav: "Remaining NAV", totalValue: "Total value" }[k]}</td>
+                      {(["nonAffiliate", "affiliate", "gpCarry", "total"] as const).map((c) => (
+                        <td key={c} className={`num ${c === "total" ? "font-medium" : ""}`}><Fig value={classes[c][k]} fmt={fmtMoneyM} missing="blank in workbook" /></td>
+                      ))}
                     </tr>
-                  );
-                })}
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="muted">No fund-level import yet.</div>
+            )}
+            <table className="w-full text-[12.5px] mt-3">
+              <thead><tr className="muted"><th className="text-left font-medium">Σ holdings (latest import)</th><th className="num font-medium">Value</th></tr></thead>
+              <tbody>
+                {(["cost", "nav", "distributions", "contributions"] as const).map((k) => (
+                  <tr key={k}><td className="py-0.5 capitalize">{k === "nav" ? "NAV" : k}</td><td className="num"><Fig value={roll[k].sum} fmt={fmtMoneyM} missing={roll[k].missing ? `${roll[k].missing} holding(s) blank — no partial sum` : "no holdings in the latest import"} /></td></tr>
+                ))}
               </tbody>
             </table>
-            <p className="faint mt-2">Variance is recorded on the import batch at commit time; the fund row is what accounting reported.</p>
+            <p className="faint mt-2">Fund NAV differs from Σ holdings by cash, accruals and GP carry; the import's reconciliation checks are below.</p>
           </div>
         </section>
       </div>
+
+      {variances.length > 0 && <ReconciliationPanel variances={variances} />}
 
       <section className="card">
         <div className="card-h"><h2>Investments</h2><Link href={`/investments?fund=${fund.id}`} className="link muted">open in table</Link></div>
         <div className="tbl-wrap border-0 rounded-none">
           <table className="tbl compact">
-            <thead><tr><th>Name</th><th>Bucket</th><th>Sector</th><th>Status</th><th className="num">Cost</th><th className="num">NAV</th><th className="num">Distributions</th><th className="num">MOIC (rep.)</th></tr></thead>
+            <thead><tr><th>Name</th><th>Bucket</th><th>Type</th><th>Status</th><th>Valuation</th><th className="num">Cost</th><th className="num">NAV</th><th className="num">Distributions</th><th className="num">IRR</th><th className="num">MOIC</th></tr></thead>
             <tbody>
               {fund.investments.map((i) => {
                 const r = invSnaps.get(i.id);
@@ -102,9 +118,11 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
                     <td>{i.bucket}</td>
                     <td className="muted">{i.sector ?? "—"}</td>
                     <td><StatusBadge status={i.status} /></td>
+                    <td className="whitespace-nowrap muted">{r?.holdingStatus ?? (r?.valuationDate ? fmtDate(r.valuationDate) : "—")}</td>
                     <td className="num"><Fig value={r?.cost} fmt={fmtMoneyM} missing={missingReason(r, "Cost", batch)} /></td>
                     <td className="num"><Fig value={r?.nav} fmt={fmtMoneyM} missing={missingReason(r, "NAV", batch)} /></td>
                     <td className="num"><Fig value={r?.distributions} fmt={fmtMoneyM} missing={missingReason(r, "Distributions", batch)} /></td>
+                    <td className="num"><Fig value={r?.irr} fmt={irrFmt} missing={missingReason(r, "IRR", batch)} /></td>
                     <td className="num"><Fig value={r?.moic} fmt={fmtMultiple} missing={missingReason(r, "MOIC", batch)} /></td>
                   </tr>
                 );
@@ -120,7 +138,7 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
           <ItemsTable items={sortByUrgency(items)} showLink={false} emptyText="No open items linked to this fund." />
         </section>
         <section className="card">
-          <div className="card-h"><h2>Fund terms</h2><span className="muted">editable · not accounting data</span></div>
+          <div className="card-h"><h2>Fund terms</h2><span className="muted">editable · LPA terms, not accounting data</span></div>
           <div className="card-b"><FundEditForm fund={fund} /></div>
         </section>
       </div>

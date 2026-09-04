@@ -1,56 +1,54 @@
-# Brand tokens — proposal (PLACEHOLDER, needs confirmation)
+# Brand tokens — Freestone (applied)
 
-**Status: not Freestone's brand yet.** This build environment could not reach
-`https://www.freestonecapital.com` (egress blocked by network policy) and
-`/samples/brand/` did not exist, so no colors, typefaces, or logo could be
-extracted. Per the brief ("do not invent colors or fonts"), the app ships with a
-neutral, restrained placeholder set: ink black on white, a warm-gray neutral
-ramp, no brand accent, and a system font stack. It is designed to be swapped in
-one place.
+Source of truth: `samples/brand/FAP_VII_Investor_Presentation.pptx` (the firm's own deck) —
+its PowerPoint theme (`ppt/theme/theme1.xml`), slide-master styles, colour usage counted
+across all slides — and the logo file embedded in that deck (`samples/brand/freestone-logo.png`).
+The second deck (`2026.08.13_MMM_Presentation_FAP_VII.pptx`) uses the default Office theme but
+paints the same palette explicitly (F2EDE7, 7394B2, F9F7F4, 212121, 080E3E, DDD5C9, BA480F),
+which confirms the choices below.
 
-## What is needed from you
+## Palette
 
-Any one of the following unblocks the real tokens:
+| Role in app | Token | Hex | Where it comes from |
+|---|---|---|---|
+| Body text | `--color-ink` | `#212121` | theme `dk1` |
+| Primary (buttons, KPI figures, active nav) | `--color-navy` | `#080E3E` | theme `accent1`, the most-used colour in the deck |
+| Headings | `--color-navy-2` | `#000067` | slide-master title style |
+| Logo / brand mark, negative figures & flags | `--color-rust` | `#9A2D00` | sampled from the logo PNG (theme `dk2` is `#99350A`) |
+| Secondary accent (charts: distributions) | `--color-terracotta` | `#D9814E` | theme `accent2` |
+| Chart: contributions, drop targets | `--color-steel` | `#7394B2` | theme `accent5` |
+| Tertiary accents (available, unused so far) | `--color-blue`, `--color-gold`, `--color-sand` | `#0D72CC`, `#DDCA69`, `#E6DBCC` | theme `accent3`, `accent4`, `accent6` |
+| Page background / striping | `--color-paper-2` | `#F9F7F4` | slide-master background |
+| Panels, table headers | `--color-paper-3` | `#F2EDE7` | theme `lt2` |
+| Borders, gridlines | `--color-line` | `#DDD5C9` | chart gridline colour in the deck |
+| Muted text | `--color-ink-4` | `#9A938A` | muted grey used in the deck's charts |
 
-1. Drop a brand guide and/or logo files into `/samples/brand/` (SVG preferred), or
-2. Paste the site's primary/secondary hex values, neutral palette, heading and
-   body typeface names (and whether the fonts can be self-hosted), or
-3. Run the app from a machine with web access and share the site's stylesheet
-   URLs; the extraction can then be finished.
+Functional colours: positive `#2E6B3F` (not a brand colour, kept for gain/loss legibility);
+negative uses the brand rust.
+
+## Type
+
+| Use | Face | Source |
+|---|---|---|
+| Body, tables, controls | Arial (fallback Helvetica, system sans) | theme major + minor font |
+| Page and section headings, wordmark fallback | Georgia | slide-master `titleStyle` |
+
+The deck also uses "Plus Jakarta Sans ExtraLight" on a few layouts. It is a Google font and
+could be self-hosted later; it is not used in v1 because Arial/Georgia are the theme fonts and
+the app is a dense internal tool.
+
+## Logo
+
+`public/brand/logo.png` (1054×295, rust wordmark on transparent) is shown in the header. A
+vector version (SVG) would be sharper on high-DPI screens — drop it in as
+`public/brand/logo.svg` and it takes precedence automatically.
 
 ## PWA icons
 
-`public/icons/*.png` are placeholder monograms (serif "F", ink on white) generated
-for installability. Replace them with the real mark when the logo is available
-(192, 512, maskable 512, and a 180 apple-touch-icon).
+`public/icons/*.png` are the wordmark on the `#F9F7F4` background with padding (maskable
+variant has extra safe-zone). Replace with an official app icon if one exists.
 
-## Where tokens live
+## Tone
 
-- `app/globals.css` → the `@theme { ... }` block. Tailwind v4 reads these as
-  utilities (`bg-paper`, `text-ink-3`, `border-line`, `font-serif`…).
-- Header logo: put `logo.svg` in `public/brand/`; the header switches from the
-  text wordmark to the image automatically (see `components/AppShell.tsx`).
-
-## Current placeholder values
-
-| Token | Value | Intended role once brand is confirmed |
-|---|---|---|
-| `--color-ink` | `#141414` | primary text, primary buttons |
-| `--color-ink-2/3/4` | `#3d3d3d` / `#6b6b6b` / `#9a9a9a` | secondary text, labels, disabled |
-| `--color-paper` | `#ffffff` | page background |
-| `--color-paper-2/3` | `#f7f6f3` / `#f1efeb` | table headers, striping, panels (warm off-white) |
-| `--color-line`, `--color-line-2` | `#e3e1dc` / `#eeece8` | borders, row dividers |
-| `--color-accent` | `= ink` | **brand primary — TBD** |
-| `--color-accent-soft` | `#ecebe7` | **brand primary tint — TBD** |
-| `--color-pos` / `--color-neg` / `--color-warn` | `#2e6b3f` / `#a63a2a` / `#8a6d1d` | functional only (gain/loss/flag); not brand |
-| `--font-sans` | system stack | **body typeface — TBD** |
-| `--font-serif` | `ui-serif, Georgia` | **heading / wordmark typeface — TBD** |
-| radii | 2–3px | minimal chrome |
-
-## Applied tone (independent of the final palette)
-
-- Generous white space around dense tables; minimal chrome; one weight of border.
-- Tabular numerals, right-aligned figures; `$12.3M`, `1.25x`, `12.3%`.
-- Subtle row striping and sticky table headers.
-- Light mode only.
-- Footer: "Freestone Capital — Internal. Confidential."
+Restrained: white/off-white surfaces, one border weight, navy for emphasis, rust only for the
+mark and for negatives. Dense tables with tabular numerals stay the priority.

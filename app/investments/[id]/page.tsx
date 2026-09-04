@@ -5,7 +5,7 @@ import { currentUser } from "@/lib/auth";
 import { teamMembers, DOCUMENT_TYPE_LABELS } from "@/lib/constants";
 import { fmtDate, fmtMoneyM, fmtMultiple, fmtPct, fmtRatioPct } from "@/lib/format";
 import { dpi, tvpi, unrealizedGain } from "@/lib/metrics/returns";
-import { investmentHistory, lastSeen, latestBatch, latestInvestmentSnapshots, missingReason, FIELD_LABELS } from "@/lib/queries/snapshots";
+import { investmentHistory, lastSeen, latestBatches, latestInvestmentSnapshots, missingReason, FIELD_LABELS } from "@/lib/queries/snapshots";
 import { toHistoryPoints } from "@/lib/queries/history";
 import { actionItemInclude, linkOptions, sortByUrgency } from "@/lib/queries/actionItems";
 import { IRR_SCALE } from "@/lib/import/schema";
@@ -25,9 +25,10 @@ export default async function InvestmentPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   const inv = await prisma.investment.findUnique({ where: { id }, include: { fund: true, documents: { orderBy: { date: "desc" } } } });
   if (!inv) notFound();
-  const batch = await latestBatch();
+  const latest = await latestBatches();
+  const batch = latest.byFund.get(inv.fundId) ?? null;
   const [snaps, history, seen, items, options, me] = await Promise.all([
-    latestInvestmentSnapshots(batch),
+    latestInvestmentSnapshots(latest),
     investmentHistory(id),
     lastSeen(id),
     prisma.actionItem.findMany({ where: { investmentId: id, status: "open" }, include: actionItemInclude }),
@@ -49,7 +50,7 @@ export default async function InvestmentPage({ params }: { params: Promise<{ id:
       <section>
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 mb-2">
           <h3>Financials <span className="normal-case tracking-normal font-normal">· read-only · {asOfLabel}</span></h3>
-          {s && <span className="faint">{s.batch.fileName} · sheet {s.sourceSheet} row {s.sourceRow}</span>}
+          {s && <span className="faint">{s.batch.fileName} · {s.sourceSheet} row {s.sourceRow}{s.holdingStatus ? ` · ${s.holdingStatus}` : s.valuationDate ? ` · valued ${fmtDate(s.valuationDate)}` : ""}</span>}
           {!s && seen && <span className="faint">last seen {fmtDate(seen.asOfDate)} in {seen.batch.fileName} — not forward-filled</span>}
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 md:gap-3">
@@ -74,12 +75,13 @@ export default async function InvestmentPage({ params }: { params: Promise<{ id:
             <HistoryChart data={toHistoryPoints(history)} />
             <div className="tbl-wrap mt-3">
               <table className="tbl compact">
-                <thead><tr><th>As of</th><th>Import</th><th className="num">Cost</th><th className="num">Contrib.</th><th className="num">Distrib.</th><th className="num">NAV</th><th className="num">IRR</th><th className="num">MOIC</th></tr></thead>
+                <thead><tr><th>As of</th><th>Import</th><th>Valuation</th><th className="num">Cost</th><th className="num">Contrib.</th><th className="num">Distrib.</th><th className="num">NAV</th><th className="num">IRR</th><th className="num">MOIC</th></tr></thead>
                 <tbody>
                   {history.map((h) => (
                     <tr key={h.id}>
                       <td className="whitespace-nowrap">{fmtDate(h.asOfDate)}</td>
                       <td className="muted truncate max-w-[220px]"><Link href={`/import/${h.batchId}`} className="hover:underline">{h.batch.fileName}</Link></td>
+                      <td className="whitespace-nowrap muted">{h.holdingStatus ?? fmtDate(h.valuationDate)}</td>
                       {(["cost", "contributions", "distributions", "nav"] as const).map((k) => (
                         <td key={k} className="num"><Fig value={h[k]} fmt={fmtMoneyM} missing={missingReason(h, FIELD_LABELS[k])} /></td>
                       ))}
