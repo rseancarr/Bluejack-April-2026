@@ -50,6 +50,13 @@ export default async function InvestmentsPage({ searchParams }: { searchParams: 
             },
           };
         });
+      rows.sort((a, b) => {
+        if (a.status !== b.status) return a.status === "active" ? -1 : 1;
+        if (a.nav === null && b.nav === null) return a.name.localeCompare(b.name);
+        if (a.nav === null) return 1;
+        if (b.nav === null) return -1;
+        return b.nav - a.nav;
+      });
       const active = rows.filter((r) => r.status === "active");
       const cost = sumStrict(active.map((r) => r.cost));
       const nav = sumStrict(active.map((r) => r.nav));
@@ -69,7 +76,7 @@ export default async function InvestmentsPage({ searchParams }: { searchParams: 
 
   return (
     <div>
-      <PageHeader title="Investments" subtitle={batch ? `Latest import as of ${fmtDate(batch.asOfDate)} · each fund shows its own as-of · grouped by fund` : "No accounting import committed yet."}>
+      <PageHeader title="Investments" subtitle={batch ? `Latest import as of ${fmtDate(batch.asOfDate)} · each fund shows its own as-of · grouped by fund, largest NAV first` : "No accounting import committed yet."}>
         <span className="muted">{investments.length} holdings</span>
       </PageHeader>
       <FilterBar

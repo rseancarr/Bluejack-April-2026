@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
+import { latestInvestmentSnapshots } from "./snapshots";
+import { fmtMoneyM } from "@/lib/format";
 
 export const actionItemInclude = {
   investment: { select: { id: true, name: true } },
@@ -42,15 +44,29 @@ export async function openItemsFor(owner: string) {
   return sortByUrgency(items);
 }
 
-/** Options for the "link to" select: investments, deals (open), funds. */
+/** Options for the "link to" select: investments (largest NAV first), deals (open), funds. */
 export async function linkOptions() {
-  const [investments, deals, funds] = await Promise.all([
-    prisma.investment.findMany({ select: { id: true, name: true, fund: { select: { name: true } } }, orderBy: { name: "asc" } }),
+  const [investments, deals, funds, snaps] = await Promise.all([
+    prisma.investment.findMany({ select: { id: true, name: true, status: true, fund: { select: { name: true } } }, orderBy: { name: "asc" } }),
     prisma.deal.findMany({ select: { id: true, name: true, stage: true }, orderBy: [{ stage: "asc" }, { name: "asc" }] }),
     prisma.fund.findMany({ select: { id: true, name: true }, orderBy: { vintage: "asc" } }),
+    latestInvestmentSnapshots(),
   ]);
+  const nav = (id: string) => snaps.get(id)?.nav ?? null;
+  const bySize = [...investments].sort((a, b) => {
+    const an = nav(a.id);
+    const bn = nav(b.id);
+    if (an === null && bn === null) return a.name.localeCompare(b.name);
+    if (an === null) return 1;
+    if (bn === null) return -1;
+    return bn - an;
+  });
+  const short = (fund: string) => fund.replace("Freestone Advantage Partners", "FAP").replace(" LP", "");
   return {
-    investments: investments.map((i) => ({ value: `investment:${i.id}`, label: `${i.name} · ${i.fund.name}` })),
+    investments: bySize.map((i) => {
+      const n = nav(i.id);
+      return { value: `investment:${i.id}`, label: `${i.name} · ${short(i.fund.name)}${n !== null ? ` · ${fmtMoneyM(n)}` : i.status === "realized" ? " · realized" : ""}` };
+    }),
     deals: deals.map((d) => ({ value: `deal:${d.id}`, label: `${d.name} · ${d.stage}` })),
     funds: funds.map((f) => ({ value: `fund:${f.id}`, label: f.name })),
   };
