@@ -1,0 +1,14 @@
+node_modules
+.next
+out
+*.db
+*.db-journal
+prisma/dev.db*
+.env
+storage/documents/*
+!storage/documents/.gitkeep
+storage/imports/*
+!storage/imports/.gitkeep
+*.tsbuildinfo
+next-env.d.ts
+coverage

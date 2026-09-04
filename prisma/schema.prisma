@@ -1,0 +1,217 @@
+// Freestone internal portfolio app — v1 schema.
+//
+// Portability notes (SQLite now, Postgres later):
+//  - No SQLite-only features are used. Swapping is: change `provider` below to
+//    "postgresql", update DATABASE_URL, run `prisma migrate dev`.
+//  - Enumerated values (stage, status, bucket, source type…) are stored as
+//    strings validated in /lib/constants.ts rather than Prisma enums, so the
+//    same schema works on both engines and can be tightened to native enums later.
+//  - Money and rates are stored as Float exactly as received from the accounting
+//    workbook. Nullable = "not present in that import". Never default to 0.
+//  - JSON-ish payloads are stored as String (serialized JSON) for SQLite
+//    compatibility; migrate to `Json` columns on Postgres if desired.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Fund {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  vintage          Int
+  committedCapital Float?   // fund term (LPA), editable — not an accounting figure
+  mgmtFeePct       Float?   // e.g. 2.0 = 2%
+  carryPct         Float?
+  hurdlePct        Float?
+  status           String   @default("active") // investing | harvesting | closed
+  externalId       String?  @unique // accounting system's fund ID
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  investments Investment[]
+  snapshots   FinancialSnapshot[]
+  deals       DealFund[]
+  actionItems ActionItem[]
+  mappings    NameMapping[]
+}
+
+model Investment {
+  id           String    @id @default(cuid())
+  fundId       String
+  fund         Fund      @relation(fields: [fundId], references: [id])
+  name         String
+  bucket       String    // Energy | LMM PE | Opportunistic
+  sector       String?
+  entryDate    DateTime?
+  ownershipPct Float?    // pipeline/ops datum, editable
+  status       String    @default("active") // active | realized
+  contacts     String?   // free text, one per line
+  notes        String?
+  externalId   String?   @unique // accounting system's investment ID
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  snapshots   FinancialSnapshot[]
+  documents   Document[]
+  actionItems ActionItem[]
+  mappings    NameMapping[]
+
+  @@unique([fundId, name])
+  @@index([fundId])
+}
+
+/// One row per uploaded workbook. Pending batches hold the parsed preview;
+/// committed batches own FinancialSnapshot rows. Failed parses are kept for the log.
+model ImportBatch {
+  id            String    @id @default(cuid())
+  fileName      String
+  storagePath   String?
+  uploadedAt    DateTime  @default(now())
+  uploadedBy    String?
+  asOfDate      DateTime?
+  status        String    @default("pending") // pending | committed | failed | discarded
+  committedAt   DateTime?
+  errorMessage  String?
+  parsedJson    String?   // serialized ParsedWorkbook while pending
+  resolutionsJson String? // serialized user resolutions for unmatched rows while pending
+  varianceJson  String?   // reconciliation variances recorded at commit
+  warningsJson  String?
+  rowCount      Int?
+  notes         String?
+
+  snapshots FinancialSnapshot[]
+}
+
+/// A single as-of-date observation of an investment OR a fund, from one import.
+/// Exactly one of investmentId / fundId is set (enforced in application code).
+model FinancialSnapshot {
+  id            String      @id @default(cuid())
+  batchId       String
+  batch         ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  asOfDate      DateTime
+  level         String      // investment | fund
+  investmentId  String?
+  investment    Investment? @relation(fields: [investmentId], references: [id])
+  fundId        String?
+  fund          Fund?       @relation(fields: [fundId], references: [id])
+
+  // Stored exactly as received. Null = absent from the workbook that batch came from.
+  cost          Float?
+  contributions Float?
+  distributions Float?
+  nav           Float?
+  irr           Float?
+  moic          Float?
+  extraJson     String?     // any additional workbook columns, verbatim {column: value}
+
+  sourceSheet   String
+  sourceRow     Int
+  sourceName    String      // name exactly as it appeared in the workbook
+
+  @@unique([batchId, investmentId])
+  @@unique([batchId, fundId])
+  @@index([investmentId, asOfDate])
+  @@index([fundId, asOfDate])
+}
+
+/// Manual mapping from a workbook name to an investment or fund, used when the
+/// workbook row carries no external ID. Editable in the UI.
+model NameMapping {
+  id           String      @id @default(cuid())
+  sourceName   String      @unique
+  level        String      // investment | fund
+  investmentId String?
+  investment   Investment? @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+  fundId       String?
+  fund         Fund?       @relation(fields: [fundId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+}
+
+model Deal {
+  id          String    @id @default(cuid())
+  name        String
+  sponsor     String?
+  sourceType  String    @default("other") // banker | sponsor | proprietary | other
+  sector      String?
+  bucket      String?   // Energy | LMM PE | Opportunistic
+  estSize     Float?    // estimated deal size in USD (pipeline estimate, editable)
+  stage       String    @default("Sourced") // Sourced | Screening | IC | Closed | Passed
+  owner       String
+  nextStep    String?
+  fitNotes    String?
+  dateSourced DateTime  @default(now())
+  passReason  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  funds       DealFund[]
+  stageEvents DealStageEvent[]
+  actionItems ActionItem[]
+
+  @@index([stage])
+  @@index([dateSourced])
+}
+
+model DealFund {
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  fundId String
+  fund   Fund   @relation(fields: [fundId], references: [id], onDelete: Cascade)
+
+  @@id([dealId, fundId])
+}
+
+/// Append-only. One row every time a deal enters a stage.
+model DealStageEvent {
+  id        String   @id @default(cuid())
+  dealId    String
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  stage     String
+  enteredAt DateTime @default(now())
+  changedBy String?
+  note      String?
+
+  @@index([dealId, enteredAt])
+  @@index([stage, enteredAt])
+}
+
+model ActionItem {
+  id           String      @id @default(cuid())
+  title        String
+  owner        String
+  dueDate      DateTime?
+  status       String      @default("open") // open | done
+  completedAt  DateTime?
+  createdFrom  String      @default("manual") // manual | meeting
+  meetingDate  DateTime?
+  investmentId String?
+  investment   Investment? @relation(fields: [investmentId], references: [id], onDelete: SetNull)
+  dealId       String?
+  deal         Deal?       @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  fundId       String?
+  fund         Fund?       @relation(fields: [fundId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([owner, status])
+  @@index([dueDate])
+}
+
+model Document {
+  id           String     @id @default(cuid())
+  fileName     String
+  type         String     @default("other") // quarterly_report | capital_call | distribution_notice | k1 | other
+  investmentId String
+  investment   Investment @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+  date         DateTime
+  storagePath  String
+  uploadedAt   DateTime   @default(now())
+
+  @@index([investmentId, date])
+}
