@@ -74,11 +74,5 @@ export function funnelToCsv(data: FunnelData): string {
     })]);
   }
   lines.push(["Passed", ...data.years.flatMap((y) => [data.byYear[y].passed.count, data.byYear[y].passed.size.sum ?? "", data.byYear[y].passed.size.missing, ""])]);
-  lines.push([]);
-  lines.push(["Sourced by source type", ...data.years.map((y) => periodLabel(y))]);
-  for (const k of data.sourceTypeKeys) lines.push([k, ...data.years.map((y) => data.sourceTypes[y][k] ?? 0)]);
-  lines.push([]);
-  lines.push(["Median days in stage (by year entered)", ...data.years.map(String)]);
-  for (const s of STAGES) lines.push([s, ...data.years.map((y) => data.medianDays[y][s] ?? "")]);
   return lines.map((l) => l.map(esc).join(",")).join("\n");
 }

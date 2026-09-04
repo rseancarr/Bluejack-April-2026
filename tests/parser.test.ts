@@ -4,7 +4,7 @@ import path from "node:path";
 import { parseWorkbook, ParseError } from "@/lib/import/parser";
 import { reconcile } from "@/lib/import/reconcile";
 import { diffAgainstPrior } from "@/lib/import/diff";
-import { buildWorkbook, goodSpec, type WorkbookSpec } from "@/lib/import/build";
+import { buildWorkbook, buildWinddownWorkbook, goodSpec, goodWinddownSpec, type WorkbookSpec } from "@/lib/import/build";
 
 async function expectProblems(spec: WorkbookSpec, ...patterns: RegExp[]) {
   const buf = await buildWorkbook(spec);
@@ -23,15 +23,18 @@ async function expectProblems(spec: WorkbookSpec, ...patterns: RegExp[]) {
 describe("parseWorkbook: real layout, happy path", () => {
   it("reads the fund, classes, returns and holdings exactly as received", async () => {
     const parsed = await parseWorkbook(await buildWorkbook(goodSpec()));
+    expect(parsed.layout).toBe("dashboard");
     expect(parsed.asOfDate).toBe("2026-06-30");
-    expect(parsed.sheetsRead).toEqual(["Dashboard Confessional", "MTM", "IRR Detail"]);
+    expect(parsed.sheetsRead).toEqual(["Dashboard", "MTM", "IRR Detail"]);
+    expect(parsed.exposure).toBeNull();
+    expect(parsed.notes.join(" ")).toMatch(/No "Exposure by Asset Class"/);
     const f = parsed.funds[0];
     expect(f.name).toBe("Demo Advantage Partners I LP");
     expect(f.fields).toEqual({ cost: 8_671_368.39 + 15_023_087, contributions: 255_842_500, distributions: 255_532_961, nav: 288_297_288.24, irr: 0.2497, moic: 2.13 });
     expect(f.fundFields).toEqual({ commitments: 255_092_500, redemptions: 966_088.38, totalValue: 544_796_337.62, irrGross: 0.2586, moicGross: 2.18, irrNet: 0.2152, moicNet: 1.96 });
     expect(f.classes.gpCarry.commitments).toBeNull(); // blank cell → null, not 0
     expect(f.classes.affiliate.called).toBe(17_042_500);
-    expect(f.sources.nav).toBe("Dashboard Confessional!F18");
+    expect(f.sources.nav).toBe("Dashboard!F18");
 
     expect(parsed.investments).toHaveLength(3);
     const [alpha, , gamma] = parsed.investments;
@@ -42,11 +45,13 @@ describe("parseWorkbook: real layout, happy path", () => {
     expect(alpha.fields.contributions).toBeCloseTo(8_671_368.39, 2);
     expect(alpha.fields.distributions).toBeCloseTo(4_677_555.54, 2);
     expect(alpha.extra).toEqual({ "Investment Type": "Other Fund", "Cash flows": 3 });
-    expect(alpha.sources.nav).toBe("Dashboard Confessional!D32");
+    expect(alpha.sources.nav).toBe("Dashboard!D32");
     expect(alpha.sources.cost).toBe("MTM!F4");
     expect(alpha.missingFields).toEqual([]);
 
     expect(gamma.holdingStatus).toBe("Closed");
+    expect(gamma.realized).toBe(true);
+    expect(alpha.realized).toBe(false);
     expect(gamma.valuationDate).toBeNull();
     expect(gamma.fields.nav).toBeNull();
     expect(gamma.fields.cost).toBeNull();
@@ -66,17 +71,66 @@ describe("parseWorkbook: real layout, happy path", () => {
     expect(parsed.investments[0].fields.nav).toBe(1234567.891);
   });
 
+  it("accepts the June tab name \"Dashboard Confessional\"", async () => {
+    const spec = goodSpec();
+    spec.sheetNames = { dashboard: "Dashboard Confessional" };
+    const parsed = await parseWorkbook(await buildWorkbook(spec));
+    expect(parsed.sheetsRead[0]).toBe("Dashboard Confessional");
+  });
+
+  it("reads the Exposure by Asset Class table and tolerates a spacer row before Total", async () => {
+    const spec = goodSpec();
+    spec.spacerBeforeTotal = true;
+    spec.exposure = [
+      { assetClass: "Private Equity", investmentNav: 14_504_492, pct: 0.65, fundNav: 180_000_000 },
+      { assetClass: "Energy", investmentNav: 7_760_738.86, pct: 0.35, fundNav: 108_297_288.24 },
+    ];
+    const parsed = await parseWorkbook(await buildWorkbook(spec));
+    expect(parsed.investments).toHaveLength(3);
+    expect(parsed.exposure).toEqual([
+      { assetClass: "Private Equity", investmentNav: 14_504_492, pct: 0.65, fundNav: 180_000_000 },
+      { assetClass: "Energy", investmentNav: 7_760_738.86, pct: 0.35, fundNav: 108_297_288.24 },
+    ]);
+    const [rec] = reconcile(parsed);
+    expect(rec.checks.find((c) => c.key === "exposure-fund")).toMatchObject({ variance: 0, flagged: false });
+  });
+
+  it("stores n/a as blank, keeps non-date valuation text as a note and falls back to the MTM date", async () => {
+    const spec = goodSpec();
+    spec.measures.called.gpCarry = "n/a" as unknown as number;
+    spec.holdings[0].valuationDate = "Quarterly PCAP";
+    spec.holdings[0].irr = "N/A" as unknown as number;
+    const parsed = await parseWorkbook(await buildWorkbook(spec));
+    expect(parsed.funds[0].classes.gpCarry.called).toBeNull();
+    const alpha = parsed.investments[0];
+    expect(alpha.holdingStatus).toBe("Quarterly PCAP");
+    expect(alpha.realized).toBe(false);
+    expect(alpha.valuationDate).toBeNull(); // fixture MTM has no date for a text valuation cell
+    expect(alpha.fields.irr).toBeNull();
+    expect(alpha.missingFields).toContain("irr");
+  });
+
+  it("Excel error values become blank and are listed in notes", async () => {
+    const spec = goodSpec();
+    spec.mutate = (wb) => {
+      wb.getWorksheet("Dashboard")!.getCell("E32").value = { error: "#REF!" } as never;
+    };
+    const parsed = await parseWorkbook(await buildWorkbook(spec));
+    expect(parsed.investments[0].fields.irr).toBeNull();
+    expect(parsed.notes.join("\n")).toMatch(/Dashboard!E32 \(Alpha Energy Fund II, LP IRR\) is #REF!/);
+  });
+
   it("finds labels even when rows move, and matches headers case-insensitively", async () => {
     const spec = goodSpec();
     spec.mutate = (wb) => {
-      const ds = wb.getWorksheet("Dashboard Confessional")!;
+      const ds = wb.getWorksheet("Dashboard")!;
       ds.spliceRows(11, 0, [], []); // push everything below the return table down two rows
       ds.getCell("B6").value = "return basis";
       ds.getCell("E6").value = "irr";
     };
     const parsed = await parseWorkbook(await buildWorkbook(spec));
     expect(parsed.funds[0].fields.nav).toBe(288_297_288.24);
-    expect(parsed.investments[0].sources.nav).toBe("Dashboard Confessional!D34");
+    expect(parsed.investments[0].sources.nav).toBe("Dashboard!D34");
   });
 
   it("a holding missing from MTM or IRR Detail gets nulls, not zeros", async () => {
@@ -95,10 +149,10 @@ describe("parseWorkbook: fails loudly", () => {
     await expect(parseWorkbook(Buffer.from("not a workbook"))).rejects.toThrow(/not a readable/);
   });
 
-  it("missing dashboard sheet lists the sheets it found", async () => {
+  it("neither layout recognisable lists the sheets it found", async () => {
     const spec = goodSpec();
-    spec.sheetNames = { dashboard: "Dashboard" };
-    await expectProblems(spec, /Missing sheet "Dashboard Confessional"/, /"Dashboard"/);
+    spec.sheetNames = { dashboard: "Summary" };
+    await expectProblems(spec, /No "Dashboard\*" sheet and no "TB Recalc" \+ "IRR" pair/, /"Summary"/);
   });
 
   it("missing MTM and IRR Detail sheets", async () => {
@@ -116,24 +170,24 @@ describe("parseWorkbook: fails loudly", () => {
   it("missing measure row and missing class column", async () => {
     const spec = goodSpec();
     spec.mutate = (wb) => {
-      const ds = wb.getWorksheet("Dashboard Confessional")!;
+      const ds = wb.getWorksheet("Dashboard")!;
       ds.getCell("B15").value = "Capital Called"; // was "Called Capital"
       ds.getCell("E13").value = "GP"; // was "GP Carry"
     };
     await expectProblems(spec, /missing column header "GP Carry"/);
     const spec2 = goodSpec();
     spec2.mutate = (wb) => {
-      wb.getWorksheet("Dashboard Confessional")!.getCell("B15").value = "Capital Called";
+      wb.getWorksheet("Dashboard")!.getCell("B15").value = "Capital Called";
     };
     await expectProblems(spec2, /no row "Called Capital"/);
   });
 
   it("text where a number is expected names the cell", async () => {
     const spec = goodSpec();
-    spec.holdings[0].nav = "n/a" as unknown as number;
+    spec.holdings[0].nav = "pending" as unknown as number;
     spec.measures.nav.total = "TBD" as unknown as number;
     spec.portfolioNavTotal = 14_504_492;
-    const err = await expectProblems(spec, /Dashboard Confessional!D32 \(Alpha Energy Fund II, LP NAV\) must be numeric, got string "n\/a"/, /Dashboard Confessional!F18 \(Remaining NAV \/ Fund Total\) must be numeric, got string "TBD"/);
+    const err = await expectProblems(spec, /Dashboard!D32 \(Alpha Energy Fund II, LP NAV\) must be numeric, got string "pending"/, /Dashboard!F18 \(Remaining NAV \/ Fund Total\) must be numeric, got string "TBD"/);
     expect(err.problems).toHaveLength(2);
   });
 
@@ -146,23 +200,29 @@ describe("parseWorkbook: fails loudly", () => {
   it("blank fund name and missing as-of date", async () => {
     const spec = goodSpec();
     spec.mutate = (wb) => {
-      const ds = wb.getWorksheet("Dashboard Confessional")!;
+      const ds = wb.getWorksheet("Dashboard")!;
       ds.getCell("B2").value = null;
       ds.getCell("E38").value = "June 2026";
     };
     await expectProblems(spec, /B2 \(fund name\) is blank/, /as-of date is string "June 2026"/);
   });
 
-  it("holdings table without a Total row, and a blank name inside it", async () => {
+  it("holdings table without a Total row", async () => {
     const spec = goodSpec();
     spec.labels = { total: "" };
     await expectProblems(spec, /blank holding name before the "Total" row/);
   });
 
+  it("a blank row followed by more holdings is not a spacer", async () => {
+    const spec = goodSpec();
+    spec.mutate = (wb) => wb.getWorksheet("Dashboard")!.getCell("B33").value = null;
+    await expectProblems(spec, /row 33: blank holding name/);
+  });
+
   it("duplicate holding", async () => {
     const spec = goodSpec();
     spec.holdings[1].name = spec.holdings[0].name;
-    await expectProblems(spec, /duplicate holding "Alpha Energy Fund II, LP" on rows 32 and 33/);
+    await expectProblems(spec, /duplicate/);
   });
 
   it("MTM without a Cost column; IRR Detail without a Current Value row", async () => {
@@ -259,6 +319,102 @@ describe("diffAgainstPrior", () => {
     const d = diffAgainstPrior(rows, [{ index: 0, investmentId: "a", createNew: false }], [{ investmentId: "a", asOfDate: "2026-05-31", nav: null, cost: 1, distributions: 0, contributions: 1 }]);
     expect(d.entries[0].navChangePct).toBeNull();
     expect(d.entries[0].flagged).toBe(false);
+  });
+});
+
+describe("parseWorkbook: winddown layout (no dashboard tab)", () => {
+  it("reads fund figures from TB Recalc and holdings from MTM ∪ IRR", async () => {
+    const parsed = await parseWorkbook(await buildWinddownWorkbook(goodWinddownSpec()));
+    expect(parsed.layout).toBe("winddown");
+    expect(parsed.asOfDate).toBe("2026-07-31");
+    expect(parsed.sheetsRead).toEqual(["TB Recalc", "MTM", "IRR", "Valuation"]);
+    const f = parsed.funds[0];
+    expect(f.name).toBe("Demo Advantage Partners III LP");
+    expect(f.fields.contributions).toBe(114_271_000); // negated
+    expect(f.fields.distributions).toBeCloseTo(83_391_955 + 366_450, 2); // distributions + return of capital
+    expect(f.fundFields.redemptions).toBeCloseTo(535_401.1, 2);
+    expect(f.fields.nav).toBeCloseTo(27_758_600.9, 2);
+    expect(f.fields.irr).toBeNull();
+    expect(f.fundFields.commitments).toBeNull();
+    expect(f.fields.cost).toBeCloseTo(7_608_962.33 + 3_816_020.39 + 6_088_324, 2);
+    expect(parsed.exposure).toBeNull();
+    expect(parsed.notes[0]).toMatch(/Winddown layout/);
+
+    const byName = Object.fromEntries(parsed.investments.map((h) => [h.name, h]));
+    expect(Object.keys(byName)).toHaveLength(4);
+    expect(byName["CLC Issuer DAC"]).toMatchObject({ realized: false, valuationDate: "2026-06-30" });
+    expect(byName["CLC Issuer DAC"].fields).toEqual({ cost: 7_608_962.33, contributions: 20_767_544.99, distributions: 21_286_300.28, nav: 1_347_376.11, irr: 0.0289, moic: 1.0899 });
+    expect(byName["GCF I LP"].valuationDate).toBe("2026-07-31"); // "CM" = as-of date
+    expect(byName["GCF I LP"].extra).toEqual({ Manager: "North Wall", "Cash flows": 2 });
+    // MTM-only holding: IRR/MOIC fall back to MTM's columns (which repeat MOIC) and a note says so
+    expect(byName["Crescent Energy Cl A"].fields.contributions).toBeNull();
+    expect(byName["Crescent Energy Cl A"].missingFields).toEqual(["contributions", "distributions", "irr", "moic"]);
+    // IRR-only holding with no value: realized
+    expect(byName["Granite Point II LP"]).toMatchObject({ realized: true, holdingStatus: "Closed" });
+    expect(byName["Granite Point II LP"].fields).toMatchObject({ cost: null, nav: null, contributions: 25_305_654.62, distributions: 38_845_537.05, irr: 0.2617, moic: 1.535 });
+  });
+
+  it("Excel errors in the IRR summary rows become blank with a note; missing TB row aborts", async () => {
+    const spec = goodWinddownSpec();
+    spec.holdings[3].block!.irr = { error: "#NUM!" };
+    spec.holdings[3].block!.value = { error: "#REF!" };
+    const parsed = await parseWorkbook(await buildWinddownWorkbook(spec));
+    const gp = parsed.investments.find((h) => h.name === "Granite Point II LP")!;
+    expect(gp.fields.irr).toBeNull();
+    expect(parsed.notes.join("\n")).toMatch(/IRR!.* \(Granite Point II LP IRR\) is #NUM!/);
+
+    const bad = goodWinddownSpec();
+    bad.mutate = (wb) => wb.getWorksheet("TB Recalc")!.eachRow((row) => { if (row.getCell(2).value === "NAV") row.getCell(2).value = "Net Assets"; });
+    let err: unknown;
+    try { await parseWorkbook(await buildWinddownWorkbook(bad)); } catch (e) { err = e; }
+    expect((err as ParseError).problems.join()).toMatch(/TB Recalc: no row "NAV"/);
+  });
+
+  it("winddown reconciliation only runs the checks that apply", async () => {
+    const parsed = await parseWorkbook(await buildWinddownWorkbook(goodWinddownSpec()));
+    const [rec] = reconcile(parsed);
+    expect(rec.checks.some((c) => c.key.startsWith("class-"))).toBe(false);
+    expect(rec.checks.find((c) => c.key === "mtm-cost")).toMatchObject({ variance: 0, flagged: false });
+    expect(rec.flagged).toBe(false);
+  });
+});
+
+// Runs only when accounting's real files are present locally (they are not committed to git).
+const JULY = {
+  iv: path.resolve(__dirname, "../samples/20260731_FAPIV_TB_Analysis_JC.xlsm"),
+  v: path.resolve(__dirname, "../samples/20260731_FAPV_TB_Analysis_JC.xlsm"),
+  vi: path.resolve(__dirname, "../samples/20260731_FAPVI_TB_Analysis_JC.xlsm"),
+  iii: path.resolve(__dirname, "../samples/20260731_FAPIII_TB_Analysis.xlsx"),
+};
+describe.skipIf(!Object.values(JULY).every(existsSync))("July 2026 real files", () => {
+  it("FAP IV (.xlsm) with the exposure table", async () => {
+    const p = await parseWorkbook(readFileSync(JULY.iv));
+    expect(p.asOfDate).toBe("2026-07-31");
+    expect(p.exposure?.map((e) => e.assetClass)).toEqual(["Private Equity", "Energy", "Other"]);
+    expect(reconcile(p)[0].flagged).toBe(false);
+  });
+  it("FAP V (.xlsm with an Excel table) and valuation-source text in the date column", async () => {
+    const p = await parseWorkbook(readFileSync(JULY.v));
+    expect(p.funds[0].name).toBe("Freestone Advantage Partners V");
+    const chp = p.investments.find((h) => h.name.startsWith("CHP MBD"))!;
+    expect(chp.valuationDate).toBe("2026-06-30"); // from MTM
+    expect(chp.realized).toBe(false);
+    const hay = p.investments.find((h) => h.name.startsWith("FV Haynesville"))!;
+    expect(hay).toMatchObject({ realized: true, holdingStatus: "Closed" });
+    expect(hay.fields.irr).toBeNull(); // "n/a"
+  });
+  it("FAP VI with a spacer row before Total and blank distributions", async () => {
+    const p = await parseWorkbook(readFileSync(JULY.vi));
+    expect(p.investments).toHaveLength(10);
+    expect(p.funds[0].fields.distributions).toBeNull();
+    expect(p.exposure?.length).toBe(4);
+  });
+  it("FAP III winddown", async () => {
+    const p = await parseWorkbook(readFileSync(JULY.iii));
+    expect(p.layout).toBe("winddown");
+    expect(p.funds[0].fields.contributions).toBe(114_271_000);
+    expect(p.investments.length).toBeGreaterThan(15);
+    expect(p.notes.join(" ")).toMatch(/#REF!/);
   });
 });
 

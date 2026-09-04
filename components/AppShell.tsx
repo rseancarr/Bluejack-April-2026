@@ -5,7 +5,11 @@ import Link from "next/link";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
 import { Nav } from "./Nav";
 import { MobileNav } from "./MobileNav";
+import { QuickAddButton } from "./QuickAddButton";
 import { logout } from "@/lib/actions/auth";
+import { prisma } from "@/lib/db";
+import { linkOptions } from "@/lib/queries/actionItems";
+import { teamMembers } from "@/lib/constants";
 
 const NAV = [
   { href: "/", label: "Home" },
@@ -13,7 +17,6 @@ const NAV = [
   { href: "/pipeline", label: "Pipeline" },
   { href: "/pipeline/funnel", label: "Funnel" },
   { href: "/action-items", label: "Action items" },
-  { href: "/funds", label: "Funds" },
   { href: "/import", label: "Import" },
 ];
 
@@ -21,6 +24,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const store = await cookies();
   const user = verifySessionToken(store.get(SESSION_COOKIE)?.value);
   const logoFile = ["logo.svg", "logo.png"].find((f) => existsSync(path.join(process.cwd(), "public", "brand", f)));
+  const [funds, options] = user ? await Promise.all([prisma.fund.findMany({ orderBy: { vintage: "asc" }, select: { id: true, name: true, status: true } }), linkOptions()]) : [[], { investments: [], deals: [], funds: [] }];
+  const defaultFundId = (funds.filter((f) => f.status === "investing").at(-1) ?? funds.at(-1))?.id ?? "";
+  const quick = user ? { members: teamMembers(), me: user, funds: funds.map((f) => ({ id: f.id, name: f.name })), options, defaultFundId } : null;
 
   return (
     <>
@@ -39,6 +45,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           <div className="ml-auto flex items-center gap-3 text-ink-3">
             {user ? (
               <>
+                {quick && <span className="hidden md:inline-flex"><QuickAddButton {...quick} /></span>}
                 <span className="text-[12px] whitespace-nowrap">{user}</span>
                 <form action={logout} className="hidden md:block">
                   <button className="btn btn-ghost btn-sm" type="submit">Sign out</button>
@@ -54,7 +61,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           Freestone Capital — Internal. Confidential.
         </div>
       </footer>
-      {user && <MobileNav logout={logout} />}
+      {user && quick && <MobileNav logout={logout} quickAdd={<QuickAddButton {...quick} variant="tab" />} />}
     </>
   );
 }

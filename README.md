@@ -83,20 +83,41 @@ the preview has something to flag.
 
 ## Accounting workbook and brand (both confirmed)
 
-- **Workbook.** The parser is built against accounting's real monthly file
-  (`samples/20260630_FAPIV_TB_Analysis_JC.xlsx`, one fund per workbook). It reads three tabs:
-  the **Dashboard Confessional** tab (fund returns on three bases, capital by investor class,
-  the holdings table, the as-of date), **MTM** (cost per holding) and **IRR Detail** (cash
-  flows per holding, summed into contributions and distributions). Cells are found by their
-  labels, so rows may move but labels must not be renamed. The full layout and the sign /
-  scale conventions are documented in `lib/import/schema.ts`. The sample and the brand decks
-  contain real fund and LP data and are git-ignored: keep them in `samples/` locally. The
-  test suite runs an extra check against the sample when it is present.
+- **Workbooks.** The parser is built against accounting's real monthly files (June and
+  July 2026 for FAP III / IV / V / VI, `.xlsx` and `.xlsm`; one fund per workbook). Active
+  funds use the **Dashboard** tab (fund returns on three bases, capital by investor class,
+  the holdings table, exposure by asset class, the as-of date) plus **MTM** (cost) and
+  **IRR Detail** (cash flows → contributions and distributions). Wind-down funds without a
+  dashboard (FAP III) are read from **TB Recalc**, **MTM** and **IRR**. Cells are found by
+  their labels, so rows may move but labels must not be renamed. Both layouts and the
+  sign / scale conventions are documented in `lib/import/schema.ts`. The samples and the
+  brand decks contain real fund and LP data and are git-ignored: keep them in `samples/`
+  locally. The test suite runs extra checks against them when present.
+- **Batch import from the command line.** `npm run import -- <file-or-folder> --create-missing`
+  parses, resolves and commits every workbook in a folder (funds and holdings are created
+  when `--create-missing` is given, exactly as the preview's "Create" buttons would). Use
+  it for a month's worth of files at once; the preview page remains the place to look when
+  something needs a human decision.
 - **Brand.** Colours, type and the logo were taken from the firm's own investor presentation
   (theme file, slide master, usage counts). See `brand/tokens.md`. Drop `logo.svg` into
   `public/brand/` if a vector logo becomes available; it takes precedence over the PNG.
 
 ---
+
+## Home page figures
+
+- The fund table shows each fund's latest import: commitments, called, uncalled,
+  distributions, NAV, DPI, net IRR / MOIC, and **GP carry generated** (the GP Carry
+  investor class's Total Value = its distributions + redemptions + remaining NAV,
+  exactly as the dashboard reports it).
+- The **Total** row sums across funds strictly (blank if any fund lacks a figure).
+  AUM = Σ NAV + Σ uncalled. The aggregate multiple is TVPI computed from the sums;
+  there is no aggregate IRR because the files do not report one.
+- **Exposure by asset class** pies use the dashboards' "Exposure by Asset Class"
+  table (fund-NAV column), one aggregate donut plus one per fund. Funds whose file
+  has no such table (wind-down funds, pre-July files) are named as excluded.
+- The former Funds tab is gone; `/funds` redirects home and fund detail pages stay
+  at `/funds/<id>`.
 
 ## How the pieces fit
 
@@ -146,11 +167,15 @@ brand/tokens.md          design-token proposal + what is still placeholder
   the field. Reported MOIC/IRR are shown as imported and never recomputed.
 - Reconciliation reproduces arithmetic the workbook itself performs: Σ holding
   NAV vs the dashboard's portfolio total, Σ cost vs the MTM total, investor
-  classes vs Fund Total for every measure, Total Value vs its components, and
-  each holding's reported MOIC vs the one implied by its cash flows. Fund NAV vs
-  Σ holdings is shown as information (the gap is cash, accruals and carry), never
-  flagged. Results are shown in the preview and stored on the batch at commit;
-  committing with a flag requires a confirm.
+  classes vs Fund Total for every measure, Total Value vs its components, the
+  exposure table vs fund NAV, and each holding's reported MOIC vs the one implied
+  by its cash flows. Fund NAV vs Σ holdings is shown as information (the gap is
+  cash, accruals and carry), never flagged. Results are shown in the preview and
+  stored on the batch at commit; committing with a flag requires a confirm.
+- Two things in accounting's files are accepted as blank rather than aborting,
+  and always listed in the preview's notes: the literal text `n/a`, and Excel
+  error values (`#REF!`, `#NUM!` …). Any other text in a numeric cell still
+  aborts the upload.
 - Stage changes always append a `DealStageEvent` (drag on the board, the stage
   select on a deal, or creation). Moving to Passed requires a reason. Creating a
   deal records exactly one event at the chosen stage — earlier stages are never
@@ -186,26 +211,32 @@ Postgres.
 
 Roughly in the order they are likely to be wanted:
 
-1. **Backfill of historical pipeline data.** A one-off importer for the team's
+1. **Pipeline inbox.** Point the app at a mailbox folder of new opportunities; a
+   Claude skill reads the teaser / CIM, drafts a one-paragraph summary and creates
+   the deal in the Screening column with the summary attached, ready to click into.
+   Needs: mailbox access (Microsoft Graph for Outlook), a document store for the
+   attachments, and the Claude API. The data model already has the deal fields and
+   documents; the summary would land in `fitNotes`.
+2. **Backfill of historical pipeline data** (a pipeline file is coming). A one-off importer for the team's
    existing deal log (spreadsheet) that creates deals *and* their stage events
    with real historical timestamps, so prior-year funnels are genuine rather than
    starting from the go-live date. Should refuse rows without a date, and be run
    once behind a flag.
-2. **Parser hardening as accounting's file evolves**: a second fund's workbook
+3. **Parser hardening as accounting's file evolves**: a second fund's workbook
    and a couple more months will show which labels drift. If accounting can add
    an ID column to the holdings table, matching becomes ID-first automatically.
-3. **Historical snapshot backfill** by importing accounting's prior monthly
+4. **Historical snapshot backfill** by importing accounting's prior monthly
    workbooks in order (the import page already supports any as-of date, one batch
    per month).
-4. **Vector logo and an official app icon** (see `brand/tokens.md`).
-5. **Per-user auth** (Google Workspace / Microsoft SSO) replacing the shared
+5. **Vector logo and an official app icon** (see `brand/tokens.md`).
+6. **Per-user auth** (Google Workspace / Microsoft SSO) replacing the shared
    password; `owner` strings are already per-person so no data migration is
    needed, just an identity source.
-6. **Document storage off local disk** (S3 or SharePoint) — `lib/storage.ts` is
+7. **Document storage off local disk** (S3 or SharePoint) — `lib/storage.ts` is
    the only place that touches the filesystem for documents.
-7. **Reminders / digests**: overdue action items and "import due" nudges by email
+8. **Reminders / digests**: overdue action items and "import due" nudges by email
    or Slack.
-8. **Postgres + hosted deployment** with automated backups once more than one
+9. **Postgres + hosted deployment** with automated backups once more than one
    machine needs access.
-9. **Audit trail** on non-financial edits (who changed notes/contacts/deal fields
+10. **Audit trail** on non-financial edits (who changed notes/contacts/deal fields
    and when), building on the append-only pattern already used for stage events.

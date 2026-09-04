@@ -17,3 +17,4 @@ coverage
 samples/*.xlsx
 samples/brand/*.pptx
 samples/brand/*.pdf
+samples/*.xlsm

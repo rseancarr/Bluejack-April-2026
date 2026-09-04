@@ -20,6 +20,13 @@ export interface ClassRow {
   total: number | null;
 }
 
+export interface ExposureSpec {
+  assetClass: string;
+  investmentNav: number | null;
+  pct: number | null;
+  fundNav: number | null;
+}
+
 export interface WorkbookSpec {
   fundName: string;
   asOf: Date | string;
@@ -28,6 +35,10 @@ export interface WorkbookSpec {
   holdings: HoldingSpec[];
   portfolioNavTotal?: number | null | "sum";
   mtmTotalCost?: number | null | "sum";
+  /** "Exposure by Asset Class" table (July 2026 onward). Omit to leave it out, as June's file did. */
+  exposure?: ExposureSpec[];
+  /** Insert a blank spacer row between the last holding and the Total row (FAP VI does this). */
+  spacerBeforeTotal?: boolean;
   /** Test hooks to break the layout. */
   mutate?: (wb: ExcelJS.Workbook) => void;
   sheetNames?: Partial<{ dashboard: string; mtm: string; irrDetail: string }>;
@@ -68,7 +79,7 @@ export async function buildWorkbook(spec: WorkbookSpec): Promise<Buffer> {
 
 export async function buildExcel(spec: WorkbookSpec): Promise<ExcelJS.Workbook> {
   const L = { returnBasis: "Return Basis", measure: "Measure", holding: "Holding", asOf: "As-of date (parsed from file name)", total: "Total / Portfolio", ...spec.labels };
-  const names = { dashboard: "Dashboard Confessional", mtm: "MTM", irrDetail: "IRR Detail", ...spec.sheetNames };
+  const names = { dashboard: "Dashboard", mtm: "MTM", irrDetail: "IRR Detail", ...spec.sheetNames };
   const wb = new ExcelJS.Workbook();
   const asOfDate = typeof spec.asOf === "string" ? spec.asOf : spec.asOf;
 
@@ -130,11 +141,32 @@ export async function buildExcel(spec: WorkbookSpec): Promise<ExcelJS.Workbook> 
     ds.getCell(`F${r}`).value = h.moic;
     r++;
   }
+  if (spec.spacerBeforeTotal) r++;
   ds.getCell(`B${r}`).value = L.total;
   const navTotal = spec.portfolioNavTotal === "sum" ? spec.holdings.reduce((a, h) => a + (h.nav ?? 0), 0) : spec.portfolioNavTotal ?? null;
   ds.getCell(`D${r}`).value = navTotal;
   ds.getCell(`E${r}`).value = "-";
   ds.getCell(`F${r}`).value = "-";
+  if (spec.exposure) {
+    r += 2;
+    ds.getCell(`B${r}`).value = "Exposure by Asset Class";
+    r++;
+    ds.getCell(`B${r}`).value = "Asset Class";
+    ds.getCell(`C${r}`).value = "Investment NAV";
+    ds.getCell(`D${r}`).value = "%";
+    ds.getCell(`E${r}`).value = "Fund NAV";
+    for (const e of spec.exposure) {
+      r++;
+      ds.getCell(`B${r}`).value = e.assetClass;
+      ds.getCell(`C${r}`).value = e.investmentNav;
+      ds.getCell(`D${r}`).value = e.pct;
+      ds.getCell(`E${r}`).value = e.fundNav;
+    }
+    r++;
+    ds.getCell(`B${r}`).value = "Total";
+    ds.getCell(`C${r}`).value = spec.exposure.reduce((a, e) => a + (e.investmentNav ?? 0), 0);
+    ds.getCell(`E${r}`).value = spec.exposure.reduce((a, e) => a + (e.fundNav ?? 0), 0);
+  }
   ds.getCell(`B${r + 3}`).value = L.asOf;
   ds.getCell(`E${r + 3}`).value = asOfDate as ExcelJS.CellValue;
 
@@ -194,4 +226,135 @@ export async function buildExcel(spec: WorkbookSpec): Promise<ExcelJS.Workbook> 
   wb.addWorksheet("TB Recalc").getCell("B2").value = "noise";
   spec.mutate?.(wb);
   return wb;
+}
+
+
+// ---------------------------------------------------------------------------
+// Winddown layout (FAP III style): TB Recalc + MTM + IRR (+ Valuation)
+// ---------------------------------------------------------------------------
+export interface WinddownHolding {
+  name: string;
+  onMtm: boolean; // live holding row on MTM
+  nav: number | null;
+  cost: number | null;
+  manager?: string | null;
+  markDate?: string | null; // "mm/dd/yyyy" or "CM"
+  /** IRR block; omit for holdings with no cash-flow block */
+  block?: { flows: { date: Date; cash: number | string }[]; value: number | null | { error: string }; irr: number | null | { error: string }; moic: number | null; contribution: number | null; distribution: number | null };
+}
+
+export interface WinddownSpec {
+  fundName: string;
+  asOf: Date;
+  tb: { contributions: number | null; returnOfCapital: number | null; distributions: number | null; redemptions: number | null; nav: number | null; carry?: number | null };
+  holdings: WinddownHolding[];
+  sheetNames?: Partial<{ tb: string; mtm: string; irr: string; valuation: string }>;
+  mutate?: (wb: ExcelJS.Workbook) => void;
+}
+
+export function goodWinddownSpec(): WinddownSpec {
+  const d = (y: number, m: number, day: number) => new Date(Date.UTC(y, m - 1, day));
+  return {
+    fundName: "Demo Advantage Partners III LP",
+    asOf: new Date(Date.UTC(2026, 6, 31)),
+    tb: { contributions: -114_271_000, returnOfCapital: 366_450, distributions: 83_391_955, redemptions: 535_401.1, nav: 27_758_600.9 },
+    holdings: [
+      { name: "CLC Issuer DAC", onMtm: true, nav: 1_347_376.11, cost: 7_608_962.33, manager: "Orchard", markDate: "06/30/2026", block: { flows: [{ date: d(2018, 8, 29), cash: -10_325_854.94 }, { date: d(2019, 2, 28), cash: 495_558.26 }], value: 1_347_376.11, irr: 0.0289, moic: 1.0899, contribution: -20_767_544.99, distribution: 21_286_300.28 } },
+      { name: "GCF I LP", onMtm: true, nav: 6_186_604.83, cost: 3_816_020.39, manager: "North Wall", markDate: "CM", block: { flows: [{ date: d(2019, 8, 22), cash: -950_931.5 }, { date: d(2023, 10, 18), cash: 16_879_166.63 }], value: 6_186_604.83, irr: 0.0603, moic: (16_879_166.63 + 6_186_604.83) / 19_896_344.11, contribution: -19_896_344.11, distribution: 16_879_166.63 } },
+      { name: "Crescent Energy Cl A", onMtm: true, nav: 2_948_945.7, cost: 6_088_324, block: undefined },
+      { name: "Granite Point II LP", onMtm: false, nav: null, cost: null, block: { flows: [{ date: d(2017, 3, 29), cash: -25_305_654.62 }, { date: d(2021, 8, 18), cash: 3_441_189.71 }], value: null, irr: 0.2617, moic: 1.535, contribution: -25_305_654.62, distribution: 38_845_537.05 } },
+    ],
+  };
+}
+
+export async function buildWinddownWorkbook(spec: WinddownSpec): Promise<Buffer> {
+  const names = { tb: "TB Recalc", mtm: "MTM", irr: "IRR", valuation: "Valuation", ...spec.sheetNames };
+  const wb = new ExcelJS.Workbook();
+  // TB Recalc
+  const tb = wb.addWorksheet(names.tb);
+  tb.getCell("B1").value = spec.fundName;
+  tb.getCell("B3").value = "Trial Balance RC";
+  tb.getCell("D3").value = "SS&C";
+  tb.getCell("E3").value = "Freestone";
+  const rows: [string, number | null][] = [
+    ["Cash - BMO", 4_768_990.95],
+    ["Investments - Cost", 81_742_863.61],
+    ["Partner's Capital - Contributions", spec.tb.contributions],
+    ["Partner's Capital - Return of Capital", spec.tb.returnOfCapital],
+    ["Partner's Capital - Distributions", spec.tb.distributions],
+    ["Partner's Capital - Redemptions", spec.tb.redemptions],
+    ["Distributions - Carried Interest", spec.tb.carry ?? null],
+    ["NAV", spec.tb.nav],
+  ];
+  rows.forEach(([label, v], i) => {
+    tb.getCell(`B${5 + i}`).value = label;
+    tb.getCell(`D${5 + i}`).value = v;
+    tb.getCell(`E${5 + i}`).value = v;
+  });
+  // MTM
+  const mtm = wb.addWorksheet(names.mtm);
+  ["Code", "Manager", "Investment", "FS Value", "Cost", "IRR", "MOIC", "MTM"].forEach((h, i) => (mtm.getRow(3).getCell(2 + i).value = h));
+  let r = 5;
+  for (const h of spec.holdings) {
+    if (!h.onMtm) continue;
+    mtm.getCell(`C${r}`).value = h.manager ?? null;
+    mtm.getCell(`D${r}`).value = h.name;
+    mtm.getCell(`E${r}`).value = h.nav;
+    mtm.getCell(`F${r}`).value = h.cost;
+    mtm.getCell(`G${r}`).value = h.block?.moic ?? null; // the real file's MTM "IRR" column repeats MOIC
+    mtm.getCell(`H${r}`).value = h.block?.moic ?? null;
+    r++;
+  }
+  r += 2;
+  mtm.getCell(`D${r}`).value = "Total";
+  mtm.getCell(`E${r}`).value = spec.holdings.filter((h) => h.onMtm).reduce((a, h) => a + (h.nav ?? 0), 0);
+  mtm.getCell(`F${r}`).value = spec.holdings.filter((h) => h.onMtm).reduce((a, h) => a + (h.cost ?? 0), 0);
+  // IRR
+  const irr = wb.addWorksheet(names.irr);
+  irr.getCell("A1").value = spec.asOf;
+  let col = 3;
+  let maxFlows = 0;
+  const blocks = spec.holdings.filter((h) => h.block);
+  for (const h of blocks) {
+    irr.getRow(2).getCell(col + 1).value = h.name;
+    irr.getRow(3).getCell(col).value = "Cash Date";
+    irr.getRow(3).getCell(col + 1).value = "Amount";
+    irr.getRow(3).getCell(col + 2).value = "Description";
+    h.block!.flows.forEach((f, i) => {
+      irr.getRow(4 + i).getCell(col).value = f.date;
+      irr.getRow(4 + i).getCell(col + 1).value = f.cash as ExcelJS.CellValue;
+    });
+    maxFlows = Math.max(maxFlows, h.block!.flows.length);
+    col += 4;
+  }
+  const valueRow = 4 + maxFlows + 2;
+  col = 3;
+  for (const h of blocks) {
+    const b = h.block!;
+    const put = (rr: number, v: unknown, label: string) => {
+      irr.getRow(rr).getCell(col + 1).value = v as ExcelJS.CellValue;
+      irr.getRow(rr).getCell(col + 2).value = label;
+    };
+    irr.getRow(valueRow).getCell(col).value = spec.asOf;
+    put(valueRow, b.value, "Value");
+    put(valueRow + 1, b.irr, "IRR");
+    put(valueRow + 2, b.moic, "MOIC");
+    put(valueRow + 3, b.contribution, "Contribution");
+    put(valueRow + 4, b.distribution, "Distribution");
+    col += 4;
+  }
+  // Valuation
+  const val = wb.addWorksheet(names.valuation);
+  ["Manager", "Investment", "FS Value", "Audit/ Valuation Type", "Valuation Frequency", "Shares", "Price", "Mark date"].forEach((h, i) => (val.getRow(3).getCell(1 + i).value = h));
+  let vr = 5;
+  for (const h of spec.holdings) {
+    if (!h.onMtm) continue;
+    val.getCell(`A${vr}`).value = h.manager ?? null;
+    val.getCell(`B${vr}`).value = h.name;
+    val.getCell(`H${vr}`).value = h.markDate ?? null;
+    vr++;
+  }
+  spec.mutate?.(wb);
+  const out = await wb.xlsx.writeBuffer();
+  return Buffer.from(out as ArrayBuffer);
 }

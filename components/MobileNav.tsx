@@ -9,14 +9,10 @@ const PRIMARY = [
   { href: "/action-items", label: "Actions", icon: "M5 12l4 4L19 6M5 6h6" },
   { href: "/investments", label: "Invest.", icon: "M4 19h16M6 15l4-5 4 3 4-6" },
 ];
-const MORE = [
-  { href: "/pipeline/funnel", label: "Funnel" },
-  { href: "/funds", label: "Funds" },
-  { href: "/action-items/meeting", label: "Meeting mode" },
-  { href: "/import", label: "Import" },
-];
+const MORE_FUNNEL = { href: "/pipeline/funnel", label: "Funnel" };
+const MORE = [MORE_FUNNEL, { href: "/action-items/meeting", label: "Meeting mode" }, { href: "/import", label: "Import" }];
 
-export function MobileNav({ logout }: { logout: () => Promise<void> }) {
+export function MobileNav({ logout, quickAdd }: { logout: () => Promise<void>; quickAdd?: React.ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const current = (href: string) => (href === "/" ? pathname === "/" : pathname === href || (pathname.startsWith(href + "/") && !(href === "/pipeline" && pathname.startsWith("/pipeline/funnel")) && !(href === "/action-items" && pathname.startsWith("/action-items/meeting"))));
@@ -34,7 +30,14 @@ export function MobileNav({ logout }: { logout: () => Promise<void> }) {
         </div>
       )}
       <nav className="mobile-nav md:hidden" aria-label="Primary">
-        {PRIMARY.map((it) => (
+        {PRIMARY.slice(0, 2).map((it) => (
+          <Link key={it.href} href={it.href} aria-current={current(it.href) ? "page" : undefined} onClick={() => setOpen(false)}>
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={it.icon} /></svg>
+            <span>{it.label}</span>
+          </Link>
+        ))}
+        {quickAdd}
+        {PRIMARY.slice(2).map((it) => (
           <Link key={it.href} href={it.href} aria-current={current(it.href) ? "page" : undefined} onClick={() => setOpen(false)}>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={it.icon} /></svg>
             <span>{it.label}</span>

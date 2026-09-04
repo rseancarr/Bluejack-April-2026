@@ -122,6 +122,7 @@ model FinancialSnapshot {
   irrNet        Float?
   moicNet       Float?
   classJson     String?     // measures by investor class {nonAffiliate|affiliate|gpCarry|total: {...}}
+  exposureJson  String?     // [{assetClass, investmentNav, pct, fundNav}] from "Exposure by Asset Class"
   // Investment level only
   valuationDate DateTime?   // date of the mark behind NAV (can lag the as-of date)
   holdingStatus String?     // status word from the valuation-date cell, e.g. "Closed"

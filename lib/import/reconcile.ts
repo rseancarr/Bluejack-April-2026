@@ -71,8 +71,8 @@ export function reconcile(parsed: ParsedWorkbook, tolerance = RECONCILIATION_TOL
   // 3. Σ holding cost vs MTM total row.
   const costSum = sumAvailable(holdings.map((h) => h.fields.cost));
   checks.push(check("mtm-cost", "Σ holding cost vs MTM total", costSum.sum, "Σ holdings", parsed.mtmTotalCost, "MTM Total row", "match", tolerance, costSum.missing ? `${costSum.missing} holding(s) have no cost (not on MTM)` : undefined));
-  // 4. Investor classes add up to Fund Total for every measure.
-  for (const mk of Object.keys(MEASURE_LABELS) as MeasureKey[]) {
+  // 4. Investor classes add up to Fund Total for every measure (dashboard layout only).
+  for (const mk of parsed.layout === "dashboard" ? (Object.keys(MEASURE_LABELS) as MeasureKey[]) : []) {
     const c = fund.classes;
     const parts = [c.nonAffiliate[mk], c.affiliate[mk], c.gpCarry[mk]];
     const s = sumAvailable(parts);
@@ -82,6 +82,13 @@ export function reconcile(parsed: ParsedWorkbook, tolerance = RECONCILIATION_TOL
   const t = fund.classes.total;
   const tv = sumAvailable([t.distributions, t.redemptions, t.nav]);
   checks.push(check("total-value", "Total Value vs Distributions + Redemptions + NAV", t.totalValue, "Total Value", tv.missing ? null : tv.sum, "sum of components", "match", tolerance));
+  // 6. Exposure by asset class: fund-NAV column adds to fund NAV; investment-NAV column adds to the portfolio total.
+  if (parsed.exposure) {
+    const ef = sumAvailable(parsed.exposure.map((e) => e.fundNav));
+    const ei = sumAvailable(parsed.exposure.map((e) => e.investmentNav));
+    checks.push(check("exposure-fund", "Exposure (fund NAV column) vs fund Remaining NAV", ef.sum, "Σ asset classes", fund.fields.nav, "fund Remaining NAV", "match", tolerance));
+    checks.push(check("exposure-inv", "Exposure (investment NAV column) vs dashboard portfolio total", ei.sum, "Σ asset classes", parsed.portfolioNavTotal, "portfolio total", "info", tolerance, "workbooks differ in what this column holds (some repeat fund NAV)"));
+  }
 
   // 6. Per holding: reported MOIC vs (distributions + NAV) ÷ contributions from the cash flows.
   const holdingChecks: HoldingCheck[] = holdings.map((h) => {

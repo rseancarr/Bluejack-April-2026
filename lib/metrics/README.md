@@ -36,6 +36,14 @@ figure in that month's import. The fund-level figure from the workbook is always
 shown alongside, and the reconciliation variance between the two is recorded on
 the import batch.
 
+### Home-page totals
+
+The home page's Total row uses `sumAvailable` (sum over funds that report the figure) and
+always shows "n of m funds" with the missing funds named on hover, because a strict total is
+blank whenever a wind-down fund lacks a line. Ratios (DPI, TVPI) and AUM are computed only
+over funds that report all four inputs, so numerator and denominator always cover the same
+funds.
+
 ## Pipeline funnel (`funnel.ts`)
 
 Source of truth: `DealStageEvent` rows (append-only, one per stage entry).

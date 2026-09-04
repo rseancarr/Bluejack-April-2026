@@ -52,6 +52,21 @@ export default async function BatchPage({ params }: { params: Promise<{ batchId:
           {batch.status === "committed" && <CommitBar batchId={batchId} mode="committed" />}
         </PageHeader>
         {fundSnap && classes && <FundPanel snap={fundSnap} classes={classes} fundId={fundSnap.fundId} />}
+        {fundSnap?.exposureJson && (
+          <section className="card">
+            <div className="card-h"><h2>Exposure by asset class</h2></div>
+            <div className="tbl-wrap border-0 rounded-none">
+              <table className="tbl compact">
+                <thead><tr><th>Asset class</th><th className="num">Investment NAV</th><th className="num">%</th><th className="num">Fund NAV</th></tr></thead>
+                <tbody>
+                  {(JSON.parse(fundSnap.exposureJson) as { assetClass: string; investmentNav: number | null; pct: number | null; fundNav: number | null }[]).map((e) => (
+                    <tr key={e.assetClass}><td>{e.assetClass}</td><td className="num"><Fig value={e.investmentNav} fmt={fmtMoney} missing="blank" /></td><td className="num"><Fig value={e.pct} fmt={fmtRatioPct} missing="blank" /></td><td className="num"><Fig value={e.fundNav} fmt={fmtMoney} missing="blank" /></td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
         <ReconciliationPanel variances={variances} />
         <section className="card">
           <div className="card-h"><h2>Holdings in this batch</h2><span className="muted">{snaps.length - 1} rows, stored as received</span></div>
@@ -118,6 +133,12 @@ export default async function BatchPage({ params }: { params: Promise<{ batchId:
       </div>
 
       {alreadyCommitted && <div className="card p-3 text-neg">A committed import already exists for this fund as of {fmtDate(batch.asOfDate)} ({alreadyCommitted.fileName}). Discard that batch first if this is a restatement.</div>}
+      {parsed.notes.length > 0 && (
+        <div className="card p-3 text-[12.5px]">
+          <div className="font-medium mb-1">Notes from the file ({parsed.layout} layout)</div>
+          <ul className="list-disc pl-5 space-y-0.5 muted">{parsed.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>
+        </div>
+      )}
 
       <section className="card">
         <div className="card-h">
@@ -159,6 +180,22 @@ export default async function BatchPage({ params }: { params: Promise<{ batchId:
         </div>
       </section>
 
+      {parsed.exposure && (
+        <section className="card">
+          <div className="card-h"><h2>Exposure by asset class</h2><span className="muted">as reported</span></div>
+          <div className="tbl-wrap border-0 rounded-none">
+            <table className="tbl compact">
+              <thead><tr><th>Asset class</th><th className="num">Investment NAV</th><th className="num">%</th><th className="num">Fund NAV</th></tr></thead>
+              <tbody>
+                {parsed.exposure.map((e) => (
+                  <tr key={e.assetClass}><td>{e.assetClass}</td><td className="num"><Fig value={e.investmentNav} fmt={fmtMoney} missing="blank" /></td><td className="num"><Fig value={e.pct} fmt={fmtRatioPct} missing="blank" /></td><td className="num"><Fig value={e.fundNav} fmt={fmtMoney} missing="blank" /></td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       <section className="card">
         <div className="card-h"><h2>Holdings</h2><span className="muted">NAV change vs {prior ? fmtDate(prior.asOfDate) : "—"}</span></div>
         <div className="tbl-wrap border-0 rounded-none">
@@ -171,8 +208,8 @@ export default async function BatchPage({ params }: { params: Promise<{ batchId:
                 return (
                   <tr key={i} className={d.status === "unmatched" ? "bg-neg-soft" : ""}>
                     <td className="faint">{row.row}</td>
-                    <td className="font-medium">{row.name}{typeof row.extra["Investment Type"] === "string" && <span className="faint ml-1">· {row.extra["Investment Type"]}</span>}</td>
-                    <td className="whitespace-nowrap">{row.holdingStatus ? <Badge tone="warn">{row.holdingStatus}</Badge> : fmtDate(row.valuationDate)}</td>
+                    <td className="font-medium">{row.name}{typeof row.extra["Investment Type"] === "string" && <span className="faint ml-1">· {row.extra["Investment Type"]}</span>}{typeof row.extra["Manager"] === "string" && <span className="faint ml-1">· {row.extra["Manager"]}</span>}</td>
+                    <td className="whitespace-nowrap">{row.realized ? <Badge tone="warn">{row.holdingStatus}</Badge> : <>{fmtDate(row.valuationDate)}{row.holdingStatus && <span className="faint ml-1">· {row.holdingStatus}</span>}</>}</td>
                     <td>
                       {r.investmentId ? (
                         <><Badge tone={d.status === "new" ? "warn" : "pos"}>{invById.get(r.investmentId)?.name}</Badge> <span className="faint">via {r.matchedBy}</span>{d.status === "new" && <span className="faint"> · first snapshot</span>}</>

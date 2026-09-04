@@ -15,7 +15,7 @@ function revalidateAll() {
 export async function uploadWorkbook(formData: FormData): Promise<{ error?: string }> {
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Choose an .xlsx file" };
-  if (!file.name.toLowerCase().endsWith(".xlsx")) return { error: "Only .xlsx workbooks are accepted" };
+  if (!/\.(xlsx|xlsm)$/i.test(file.name)) return { error: "Only .xlsx / .xlsm workbooks are accepted" };
   const buffer = Buffer.from(await file.arrayBuffer());
   const res = await ingestWorkbook(buffer, file.name, await currentUser());
   revalidatePath("/import");

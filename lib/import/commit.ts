@@ -52,6 +52,7 @@ export async function commitBatch(batchId: string): Promise<{ snapshots: number;
         irrNet: fundRow.fundFields.irrNet,
         moicNet: fundRow.fundFields.moicNet,
         classJson: JSON.stringify(fundRow.classes),
+        exposureJson: parsed.exposure ? JSON.stringify(parsed.exposure) : null,
         extraJson: Object.keys(fundRow.extra).length ? JSON.stringify(fundRow.extra) : null,
         sourcesJson: JSON.stringify(fundRow.sources),
         sourceSheet: fundRow.sheet,
@@ -72,7 +73,7 @@ export async function commitBatch(batchId: string): Promise<{ snapshots: number;
             fundId: i.fundId,
             bucket: i.bucket ?? "LMM PE",
             externalId: null,
-            status: row.holdingStatus ? "realized" : "active",
+            status: row.realized ? "realized" : "active",
             sector: typeof row.extra["Investment Type"] === "string" ? (row.extra["Investment Type"] as string) : null,
           },
         });
@@ -84,6 +85,7 @@ export async function commitBatch(batchId: string): Promise<{ snapshots: number;
           update: { investmentId, level: "investment", fundId: null },
         });
       }
+      if (row.realized) await tx.investment.updateMany({ where: { id: investmentId, status: "active" }, data: { status: "realized" } });
       await tx.financialSnapshot.create({
         data: {
           batchId,

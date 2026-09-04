@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { BUCKETS, FUNNEL_STAGES, SOURCE_TYPES, STAGES, teamMembers } from "@/lib/constants";
-import { fmtDate, fmtDays, fmtMoneyM, fmtRatioPct } from "@/lib/format";
+import { BUCKETS, FUNNEL_STAGES, teamMembers } from "@/lib/constants";
+import { fmtDate, fmtMoneyM, fmtRatioPct } from "@/lib/format";
 import { computeFunnel, type FunnelFilters } from "@/lib/queries/funnel";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { FilterBar } from "@/components/FilterBar";
+import { FunnelBars } from "@/components/charts/FunnelBars";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,13 @@ export default async function FunnelPage({ searchParams }: { searchParams: Promi
   const qs = new URLSearchParams(Object.entries(sp).filter(([, v]) => !!v) as [string, string][]).toString();
   const thisYear = data.through.getUTCFullYear();
   const label = (y: number) => (data.view === "same" || y === thisYear ? `${y} thru ${fmtDate(new Date(Date.UTC(y, data.through.getUTCMonth(), data.through.getUTCDate())))}` : `${y}`);
+  const lastYear = thisYear - 1;
+  const chartRows = data.years.includes(lastYear)
+    ? [...FUNNEL_STAGES.map((s) => ({ stage: s, current: data.byYear[thisYear].stages.find((x) => x.stage === s)!.count, prior: data.byYear[lastYear].stages.find((x) => x.stage === s)!.count })), { stage: "Passed", current: data.byYear[thisYear].passed.count, prior: data.byYear[lastYear].passed.count }]
+    : null;
+  // The chart always compares like-for-like periods, whatever the table's view setting.
+  const priorSame = chartRows && data.view !== "same" ? (await computeFunnel({ ...sp, view: "same" })).byYear[lastYear] : null;
+  const chart = chartRows?.map((r) => (priorSame ? { ...r, prior: r.stage === "Passed" ? priorSame.passed.count : priorSame.stages.find((x) => x.stage === r.stage)!.count } : r)) ?? null;
 
   return (
     <div className="space-y-5">
@@ -22,18 +30,15 @@ export default async function FunnelPage({ searchParams }: { searchParams: Promi
         <a href={`/pipeline/funnel/export?${qs}`} className="btn btn-secondary">Export CSV</a>
       </PageHeader>
 
-      <div className="flex items-end gap-4 flex-wrap">
-        <FilterBar
-          current={sp as Record<string, string | undefined>}
-          filters={[
-            { key: "fund", label: "Fund", options: funds.map((f) => ({ value: f.id, label: f.name })) },
-            { key: "bucket", label: "Bucket", options: BUCKETS.map((b) => ({ value: b, label: b })) },
-            { key: "sourceType", label: "Source type", options: SOURCE_TYPES.map((s) => ({ value: s, label: s })) },
-            { key: "owner", label: "Owner", options: teamMembers().map((m) => ({ value: m, label: m })) },
-            { key: "view", label: "Prior years", emptyLabel: "Full calendar year", options: [{ value: "same", label: `Same period thru ${fmtDate(data.through)}` }] },
-          ]}
-        />
-      </div>
+      <FilterBar
+        current={sp as Record<string, string | undefined>}
+        filters={[
+          { key: "fund", label: "Fund", options: funds.map((f) => ({ value: f.id, label: f.name })) },
+          { key: "bucket", label: "Bucket", options: BUCKETS.map((b) => ({ value: b, label: b })) },
+          { key: "owner", label: "Owner", options: teamMembers().map((m) => ({ value: m, label: m })) },
+          { key: "view", label: "Prior years", emptyLabel: "Full calendar year", options: [{ value: "same", label: `Same period thru ${fmtDate(data.through)}` }] },
+        ]}
+      />
 
       <section className="card">
         <div className="card-h"><h2>Funnel by year</h2><span className="muted">{data.view === "same" ? `every year cut at ${fmtDate(data.through)} so YTD compares like-for-like` : `current year is YTD; prior years are full years`}</span></div>
@@ -86,35 +91,12 @@ export default async function FunnelPage({ searchParams }: { searchParams: Promi
         <div className="px-3 py-2 faint">Conv. = deals reaching this stage ÷ deals reaching the previous stage, within the same period. * = some deals lack an est. size. Formulas: <code className="mono">lib/metrics/README.md</code>.</div>
       </section>
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      {chart && (
         <section className="card">
-          <div className="card-h"><h2>Sourced deals by source type</h2><span className="muted">by date sourced</span></div>
-          <div className="tbl-wrap border-0 rounded-none">
-            <table className="tbl compact">
-              <thead><tr><th>Source type</th>{data.years.map((y) => <th key={y} className="num">{label(y)}</th>)}</tr></thead>
-              <tbody>
-                {data.sourceTypeKeys.map((k) => (
-                  <tr key={k}><td className="capitalize">{k}</td>{data.years.map((y) => <td key={y} className="num">{data.sourceTypes[y][k] ?? 0}</td>)}</tr>
-                ))}
-              </tbody>
-              <tfoot><tr><td>Total</td>{data.years.map((y) => <td key={y} className="num">{Object.values(data.sourceTypes[y]).reduce((a, b) => a + b, 0)}</td>)}</tr></tfoot>
-            </table>
-          </div>
+          <div className="card-h"><h2>YTD vs same period last year</h2><span className="muted">deals reaching each stage, {fmtDate(new Date(Date.UTC(thisYear, 0, 1)))} – {fmtDate(data.through)} vs the same window in {lastYear}</span></div>
+          <div className="card-b"><FunnelBars rows={chart} currentLabel={`${thisYear} YTD`} priorLabel={`${lastYear} same period`} /></div>
         </section>
-        <section className="card">
-          <div className="card-h"><h2>Median days in stage</h2><span className="muted">by year the stage was entered; open stages excluded</span></div>
-          <div className="tbl-wrap border-0 rounded-none">
-            <table className="tbl compact">
-              <thead><tr><th>Stage</th>{data.years.map((y) => <th key={y} className="num">{y}</th>)}</tr></thead>
-              <tbody>
-                {STAGES.filter((s) => s !== "Passed" && s !== "Closed").map((s) => (
-                  <tr key={s}><td>{s}</td>{data.years.map((y) => <td key={y} className="num">{fmtDays(data.medianDays[y][s])}</td>)}</tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
+      )}
       <p className="faint"><Link href="/pipeline" className="link">Back to board</Link></p>
     </div>
   );

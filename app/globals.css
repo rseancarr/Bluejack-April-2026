@@ -146,7 +146,7 @@ label.lbl { display: block; font-size: 11px; color: var(--color-ink-3); text-tra
 /* Bottom tab bar (phones / narrow tablets) */
 .mobile-nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: grid; grid-template-columns: repeat(6, 1fr);
   background: var(--color-paper); border-top: 1px solid var(--color-line);
   padding-bottom: env(safe-area-inset-bottom);
 }

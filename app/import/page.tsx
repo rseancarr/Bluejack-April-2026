@@ -26,10 +26,11 @@ export default async function ImportPage() {
         <section className="card">
           <div className="card-h"><h2>What the workbook must contain</h2><span className="badge badge-pos">matches accounting's file</span></div>
           <div className="card-b text-[12px] space-y-2">
-            <p>One fund per workbook (e.g. <span className="mono">20260630_FAPIV_TB_Analysis.xlsx</span>). Three tabs are read:</p>
+            <p>One fund per workbook, .xlsx or .xlsm (e.g. <span className="mono">20260731_FAPIV_TB_Analysis.xlsm</span>). Three tabs are read:</p>
             <p><b>{SHEETS.dashboard}</b> — fund name in B2; the <i>{DASHBOARD.returnBasisHeader}</i> table (Fund Gross / Fund Net / Total Fund × IRR, MOIC); the <i>{DASHBOARD.measureHeader}</i> table (Total Commitments, Called Capital, Distributions, Redemptions, Remaining NAV, Total Value × Non-Affiliate, Affiliate, GP Carry, Fund Total); the <i>{DASHBOARD.holdingHeader}</i> table (Valuation Date, NAV, IRR, MOIC, ending at the Total row); the <i>{DASHBOARD.asOfLabel}</i> row.</p>
             <p><b>{SHEETS.mtm}</b> — {MTM.columns.cost} and {MTM.columns.type} per holding, plus the Total row.</p>
             <p><b>{SHEETS.irrDetail}</b> — cash-flow columns per holding down to the Current Value row. Contributions = negative flows, distributions = positive flows.</p>
+            <p><b>Wind-down funds</b> (no Dashboard tab, e.g. FAP III): fund figures from <b>TB Recalc</b>, holdings from <b>MTM</b> and <b>IRR</b>. Commitments, gross/net returns and exposure are not in those files and stay blank.</p>
             <p className="faint">Cells are found by their labels, so rows may move but labels must not be renamed. Blank cells are stored as blank. Anything unexpected aborts the upload with a list of what was wrong (nothing is written). Layout reference: <code className="mono">lib/import/schema.ts</code>.</p>
           </div>
         </section>
