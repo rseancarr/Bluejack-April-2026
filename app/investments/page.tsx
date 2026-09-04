@@ -1,12 +1,11 @@
-import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { BUCKETS } from "@/lib/constants";
-import { fmtDate, fmtMoneyM, fmtMultiple } from "@/lib/format";
-import { latestBatches, latestInvestmentSnapshots, missingReason } from "@/lib/queries/snapshots";
-import { Fig } from "@/components/ui/Fig";
+import { fmtDate } from "@/lib/format";
+import { sumStrict } from "@/lib/metrics/returns";
+import { latestBatches, latestInvestmentSnapshots, latestFundSnapshots, missingReason } from "@/lib/queries/snapshots";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { StatusBadge } from "@/components/ui/Badge";
 import { FilterBar } from "@/components/FilterBar";
+import { GroupedInvestmentsTable, type FundGroup } from "@/components/investments/GroupedTable";
 
 export const dynamic = "force-dynamic";
 
@@ -15,23 +14,62 @@ export default async function InvestmentsPage({ searchParams }: { searchParams: 
   const [funds, latest] = await Promise.all([prisma.fund.findMany({ orderBy: { vintage: "asc" } }), latestBatches()]);
   const batch = latest.global;
   const investments = await prisma.investment.findMany({
-    where: {
-      fundId: sp.fund || undefined,
-      bucket: sp.bucket || undefined,
-      status: sp.status || undefined,
-    },
-    include: {
-      fund: { select: { id: true, name: true } },
-      documents: { where: { type: "quarterly_report" }, orderBy: { date: "desc" }, take: 1 },
-    },
-    orderBy: [{ fund: { vintage: "asc" } }, { name: "asc" }],
+    where: { fundId: sp.fund || undefined, bucket: sp.bucket || undefined, status: sp.status || undefined },
+    include: { fund: { select: { id: true } }, documents: { where: { type: "quarterly_report" }, orderBy: { date: "desc" }, take: 1 } },
+    orderBy: [{ status: "asc" }, { name: "asc" }],
   });
-  const snaps = await latestInvestmentSnapshots(latest);
+  const [snaps, fundSnaps] = await Promise.all([latestInvestmentSnapshots(latest), latestFundSnapshots(latest)]);
+
+  const groups: FundGroup[] = funds
+    .map((f) => {
+      const fb = latest.byFund.get(f.id) ?? null;
+      const rows = investments
+        .filter((i) => i.fund.id === f.id)
+        .map((i) => {
+          const s = snaps.get(i.id);
+          return {
+            id: i.id,
+            name: i.name,
+            bucket: i.bucket,
+            sector: i.sector,
+            status: i.status,
+            cost: s?.cost ?? null,
+            nav: s?.nav ?? null,
+            irr: s?.irr ?? null,
+            moic: s?.moic ?? null,
+            asOf: s ? fmtDate(s.asOfDate) : null,
+            valued: s?.holdingStatus ?? (s?.valuationDate ? fmtDate(s.valuationDate) : null),
+            lastReport: i.documents[0] ? fmtDate(i.documents[0].date) : null,
+            missing: {
+              cost: missingReason(s, "Cost", fb),
+              nav: missingReason(s, "NAV", fb),
+              irr: missingReason(s, "IRR", fb),
+              moic: missingReason(s, "MOIC", fb),
+              asOf: missingReason(s, "", fb),
+            },
+          };
+        });
+      const active = rows.filter((r) => r.status === "active");
+      const cost = sumStrict(active.map((r) => r.cost));
+      const nav = sumStrict(active.map((r) => r.nav));
+      const fs = fundSnaps.get(f.id);
+      return {
+        id: f.id,
+        name: f.name,
+        vintage: f.vintage,
+        status: f.status,
+        asOf: fs ? fmtDate(fs.asOfDate) : null,
+        rows,
+        cost: { sum: cost.sum, note: active.length ? `${cost.missing} active holding(s) have no cost in the latest import — no partial sum.` : "No active holdings." },
+        nav: { sum: nav.sum, note: active.length ? `${nav.missing} active holding(s) have no NAV in the latest import — no partial sum.` : "No active holdings." },
+      };
+    })
+    .filter((g) => g.rows.length > 0 || !sp.bucket && !sp.status && !sp.fund);
 
   return (
     <div>
-      <PageHeader title="Investments" subtitle={batch ? `Latest import as of ${fmtDate(batch.asOfDate)} · each fund shows its own as-of` : "No accounting import committed yet."}>
-        <span className="muted">{investments.length} shown</span>
+      <PageHeader title="Investments" subtitle={batch ? `Latest import as of ${fmtDate(batch.asOfDate)} · each fund shows its own as-of · grouped by fund` : "No accounting import committed yet."}>
+        <span className="muted">{investments.length} holdings</span>
       </PageHeader>
       <FilterBar
         basePath="/investments"
@@ -42,45 +80,8 @@ export default async function InvestmentsPage({ searchParams }: { searchParams: 
           { key: "status", label: "Status", options: [{ value: "active", label: "Active" }, { value: "realized", label: "Realized" }] },
         ]}
       />
-      <div className="tbl-wrap mt-3">
-        <table className="tbl tbl-cards">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Fund</th>
-              <th>Bucket</th>
-              <th>Sector</th>
-              <th className="num">Cost</th>
-              <th className="num">Mark (NAV)</th>
-              <th className="num">MOIC (rep.)</th>
-              <th>Status</th>
-              <th>As of</th>
-              <th>Valued</th>
-              <th>Last report</th>
-            </tr>
-          </thead>
-          <tbody>
-            {investments.map((i) => {
-              const s = snaps.get(i.id);
-              const batch = latest.byFund.get(i.fund.id) ?? null;
-              return (
-                <tr key={i.id}>
-                  <td className="card-title"><Link href={`/investments/${i.id}`} className="link font-medium">{i.name}</Link></td>
-                  <td data-label="Fund"><Link href={`/funds/${i.fund.id}`} className="hover:underline">{i.fund.name}</Link></td>
-                  <td data-label="Bucket">{i.bucket}</td>
-                  <td className="muted card-hide">{i.sector ?? "—"}</td>
-                  <td className="num" data-label="Cost"><Fig value={s?.cost} fmt={fmtMoneyM} missing={missingReason(s, "Cost", batch)} /></td>
-                  <td className="num" data-label="Mark (NAV)"><Fig value={s?.nav} fmt={fmtMoneyM} missing={missingReason(s, "NAV", batch)} /></td>
-                  <td className="num" data-label="MOIC (rep.)"><Fig value={s?.moic} fmt={fmtMultiple} missing={missingReason(s, "MOIC", batch)} /></td>
-                  <td data-label="Status"><StatusBadge status={i.status} /></td>
-                  <td className="whitespace-nowrap" data-label="As of">{s ? fmtDate(s.asOfDate) : <span className="missing" title={missingReason(s, "", batch)}>—</span>}</td>
-                  <td className="whitespace-nowrap card-hide muted">{s?.holdingStatus ?? (s?.valuationDate ? fmtDate(s.valuationDate) : "—")}</td>
-                  <td className="whitespace-nowrap card-hide">{i.documents[0] ? fmtDate(i.documents[0].date) : <span className="faint" title="No quarterly report uploaded">—</span>}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <div className="mt-3">
+        <GroupedInvestmentsTable groups={groups} />
       </div>
     </div>
   );

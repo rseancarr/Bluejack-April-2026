@@ -206,3 +206,10 @@ label.lbl { display: block; font-size: 11px; color: var(--color-ink-3); text-tra
 @media (min-width: 768px) {
   .modal { max-height: 90vh; overflow-y: auto; }
 }
+
+/* Grouped investments: fund header rows */
+table.tbl tbody tr.group-row td { background: var(--color-paper-3); border-top: 1px solid var(--color-line); padding-top: 8px; padding-bottom: 8px; }
+table.tbl tbody tr.group-row:hover td { background: var(--color-paper-3); }
+@media (max-width: 767px) {
+  table.tbl tbody tr.group-row td { display: table-cell; }
+}
