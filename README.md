@@ -33,6 +33,20 @@ npm run dev
 
 After the first time, it is just `cd Bluejack-April-2026` then `npm run dev`.
 
+### Getting a new version
+
+A browser refresh only reloads what is already on your computer. To pick up new code:
+
+```bash
+cd Bluejack-April-2026
+git pull
+npm install
+npx prisma db push
+npm run dev
+```
+
+Your data (database and uploaded files) is kept; only the code changes.
+
 ### On your phone (same Wi-Fi as the computer)
 
 Run `npm run dev:lan` instead of `npm run dev`. It prints an address like
