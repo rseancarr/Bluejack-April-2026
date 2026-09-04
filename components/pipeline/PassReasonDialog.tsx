@@ -7,9 +7,9 @@ export function PassReasonDialog({ dealName, onConfirm, onCancel }: { dealName: 
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => ref.current?.focus(), []);
   return (
-    <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center" onClick={onCancel}>
+    <div className="modal-wrap fixed inset-0 z-50 bg-black/30 flex items-center justify-center" onClick={onCancel}>
       <form
-        className="card p-4 w-[420px] space-y-3"
+        className="modal card p-4 w-[420px] max-w-full space-y-3"
         onClick={(e) => e.stopPropagation()}
         onSubmit={(e) => {
           e.preventDefault();

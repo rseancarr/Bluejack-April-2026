@@ -18,6 +18,12 @@ Any one of the following unblocks the real tokens:
 3. Run the app from a machine with web access and share the site's stylesheet
    URLs; the extraction can then be finished.
 
+## PWA icons
+
+`public/icons/*.png` are placeholder monograms (serif "F", ink on white) generated
+for installability. Replace them with the real mark when the logo is available
+(192, 512, maskable 512, and a 180 apple-touch-icon).
+
 ## Where tokens live
 
 - `app/globals.css` → the `@theme { ... }` block. Tailwind v4 reads these as

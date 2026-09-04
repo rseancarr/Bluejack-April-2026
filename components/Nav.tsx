@@ -10,7 +10,7 @@ export function Nav({ items }: { items: { href: string; label: string }[] }) {
     return pathname === href || pathname.startsWith(href + "/");
   };
   return (
-    <nav className="nav flex items-center gap-5 h-12">
+    <nav className="nav flex items-center gap-3 lg:gap-5 h-12 whitespace-nowrap">
       {items.map((it) => (
         <Link key={it.href} href={it.href} aria-current={isCurrent(it.href) ? "page" : undefined}>
           {it.label}

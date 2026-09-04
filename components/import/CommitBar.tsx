@@ -12,7 +12,7 @@ export function CommitBar({ batchId, mode, unresolved = 0, blocked = false, flag
   }
   const canCommit = unresolved === 0 && !blocked;
   return (
-    <div className="card p-3 flex items-center gap-3 sticky bottom-3 shadow-sm">
+    <div className="card p-3 flex flex-wrap items-center gap-3 sticky bottom-[calc(64px+env(safe-area-inset-bottom))] md:bottom-3 shadow-sm">
       <button className="btn" disabled={!canCommit || pending} onClick={() => { if (flagged && !confirm(`${flagged} fund(s) have reconciliation variances. Commit anyway? The variance will be recorded on the batch.`)) return; start(async () => { const r = await commitImport(batchId); if (r?.error) setError(r.error); }); }}>
         {pending ? "Committing…" : "Commit as snapshot batch"}
       </button>

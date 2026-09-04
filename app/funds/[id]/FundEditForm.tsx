@@ -9,7 +9,7 @@ export function FundEditForm({ fund }: { fund: Fund }) {
   const [msg, setMsg] = useState<string | null>(null);
   return (
     <form
-      className="grid grid-cols-2 gap-3"
+      className="grid grid-cols-1 sm:grid-cols-2 gap-3"
       action={(fd) =>
         start(async () => {
           const r = await updateFund(fund.id, fd);
@@ -24,8 +24,8 @@ export function FundEditForm({ fund }: { fund: Fund }) {
       <div><label className="lbl">Mgmt fee %</label><input name="mgmtFeePct" className="input num" defaultValue={fund.mgmtFeePct ?? ""} inputMode="decimal" /></div>
       <div><label className="lbl">Carry %</label><input name="carryPct" className="input num" defaultValue={fund.carryPct ?? ""} inputMode="decimal" /></div>
       <div><label className="lbl">Hurdle %</label><input name="hurdlePct" className="input num" defaultValue={fund.hurdlePct ?? ""} inputMode="decimal" /></div>
-      <div className="col-span-2"><label className="lbl">Notes</label><textarea name="notes" className="textarea" defaultValue={fund.notes ?? ""} /></div>
-      <div className="col-span-2 flex items-center gap-3">
+      <div className="sm:col-span-2"><label className="lbl">Notes</label><textarea name="notes" className="textarea" defaultValue={fund.notes ?? ""} /></div>
+      <div className="sm:col-span-2 flex items-center gap-3">
         <button className="btn" disabled={pending}>Save</button>
         {msg && <span className={msg === "Saved" ? "muted" : "text-neg"}>{msg}</span>}
       </div>

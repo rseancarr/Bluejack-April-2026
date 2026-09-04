@@ -37,7 +37,7 @@ export default async function Home() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
         <Kpi label="My open items" value={mine.length} sub={overdue ? <span className="overdue">{overdue} overdue</span> : "none overdue"} />
         <Kpi label="Due this week (team)" value={dueThisWeek.length} sub={`through ${fmtDate(weekEnd)}`} />
         <Kpi label={`Deals sourced YTD ${year}`} value={ytd} sub={`vs ${lastYtd} same period ${year - 1}`} />
@@ -50,7 +50,7 @@ export default async function Home() {
           <span className="muted">{batch ? `as of ${fmtDate(batch.asOfDate)}` : "no import yet"}</span>
         </div>
         <div className="tbl-wrap border-0 rounded-none">
-          <table className="tbl compact">
+          <table className="tbl compact tbl-cards">
             <thead>
               <tr>
                 <th>Fund</th>
@@ -68,14 +68,14 @@ export default async function Home() {
                 const s = fundSnaps.get(f.id);
                 return (
                   <tr key={f.id}>
-                    <td><Link href={`/funds/${f.id}`} className="link">{f.name}</Link></td>
-                    <td className="tnum">{f.vintage}</td>
-                    <td className="num"><Fig value={f.committedCapital} fmt={fmtMoneyM} missing="Committed capital not set on the fund." /></td>
-                    <td className="num"><Fig value={s?.contributions} fmt={fmtMoneyM} missing={missingReason(s, "Contributions", batch)} /></td>
-                    <td className="num"><Fig value={uncalled(f.committedCapital, s?.contributions)} fmt={fmtMoneyM} missing="Needs committed capital and contributions from the latest import." /></td>
-                    <td className="num"><Fig value={s?.nav} fmt={fmtMoneyM} missing={missingReason(s, "NAV", batch)} /></td>
-                    <td className="num"><Fig value={dpi(s?.distributions, s?.contributions)} fmt={fmtMultiple} missing="Needs distributions and contributions from the latest import." /></td>
-                    <td className="whitespace-nowrap">{s ? fmtDate(s.asOfDate) : <span className="missing" title={missingReason(s, "", batch)}>—</span>}</td>
+                    <td className="card-title"><Link href={`/funds/${f.id}`} className="link">{f.name}</Link></td>
+                    <td className="tnum card-hide">{f.vintage}</td>
+                    <td className="num" data-label="Committed"><Fig value={f.committedCapital} fmt={fmtMoneyM} missing="Committed capital not set on the fund." /></td>
+                    <td className="num" data-label="Called"><Fig value={s?.contributions} fmt={fmtMoneyM} missing={missingReason(s, "Contributions", batch)} /></td>
+                    <td className="num" data-label="Uncalled"><Fig value={uncalled(f.committedCapital, s?.contributions)} fmt={fmtMoneyM} missing="Needs committed capital and contributions from the latest import." /></td>
+                    <td className="num" data-label="NAV"><Fig value={s?.nav} fmt={fmtMoneyM} missing={missingReason(s, "NAV", batch)} /></td>
+                    <td className="num" data-label="DPI"><Fig value={dpi(s?.distributions, s?.contributions)} fmt={fmtMultiple} missing="Needs distributions and contributions from the latest import." /></td>
+                    <td className="whitespace-nowrap" data-label="As of">{s ? fmtDate(s.asOfDate) : <span className="missing" title={missingReason(s, "", batch)}>—</span>}</td>
                   </tr>
                 );
               })}

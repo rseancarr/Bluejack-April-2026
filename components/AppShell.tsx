@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
 import { Nav } from "./Nav";
+import { MobileNav } from "./MobileNav";
 import { logout } from "@/lib/actions/auth";
 
 const NAV = [
@@ -24,7 +25,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <header className="border-b border-line bg-paper">
-        <div className="mx-auto max-w-[1400px] px-6 flex items-center gap-8 h-12">
+        <div className="mx-auto max-w-[1400px] px-3 md:px-6 flex items-center gap-4 md:gap-5 lg:gap-8 h-12">
           <Link href="/" className="flex items-center gap-3 shrink-0" aria-label="Freestone Capital">
             {hasLogo ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -32,14 +33,14 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             ) : (
               <span className="wordmark">Freestone Capital</span>
             )}
-            <span className="text-ink-4 text-[11px] uppercase tracking-[0.12em] hidden sm:inline">Portfolio</span>
+            <span className="text-ink-4 text-[11px] uppercase tracking-[0.12em] hidden lg:inline">Portfolio</span>
           </Link>
-          {user && <Nav items={NAV} />}
+          {user && <div className="hidden md:block"><Nav items={NAV} /></div>}
           <div className="ml-auto flex items-center gap-3 text-ink-3">
             {user ? (
               <>
-                <span className="text-[12px]">{user}</span>
-                <form action={logout}>
+                <span className="text-[12px] whitespace-nowrap">{user}</span>
+                <form action={logout} className="hidden md:block">
                   <button className="btn btn-ghost btn-sm" type="submit">Sign out</button>
                 </form>
               </>
@@ -47,12 +48,13 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="flex-1 mx-auto w-full max-w-[1400px] px-6 py-6">{children}</main>
-      <footer className="border-t border-line">
+      <main className="flex-1 mx-auto w-full max-w-[1400px] px-3 md:px-6 py-4 md:py-6 pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-6">{children}</main>
+      <footer className="border-t border-line hidden md:block">
         <div className="mx-auto max-w-[1400px] px-6 py-3 text-[11px] text-ink-4 tracking-wide">
           Freestone Capital — Internal. Confidential.
         </div>
       </footer>
+      {user && <MobileNav logout={logout} />}
     </>
   );
 }

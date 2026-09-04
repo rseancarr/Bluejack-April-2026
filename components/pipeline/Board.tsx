@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
+import { DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { STAGES } from "@/lib/constants";
 import { moveDeal } from "@/lib/actions/deals";
 import { fmtMoneyM } from "@/lib/format";
@@ -74,7 +74,11 @@ export function Board({ deals: initial, terminalWindowDays }: { deals: BoardDeal
   const [passFor, setPassFor] = useState<BoardDeal | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [, start] = useTransition();
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  // Mouse: drag after 6px. Touch: long-press (220ms) so horizontal scrolling still works.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
+  );
 
   // Server refreshes replace the list; keep local state in sync.
   const [prevInitial, setPrevInitial] = useState(initial);
@@ -125,15 +129,15 @@ export function Board({ deals: initial, terminalWindowDays }: { deals: BoardDeal
   return (
     <div>
       {error && <div className="mb-2 text-neg">{error}</div>}
-      <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setActive(null)}>
-        <div className="flex gap-3 overflow-x-auto pb-2">
+      <DndContext sensors={sensors} autoScroll={{ threshold: { x: 0.12, y: 0.15 }, acceleration: 6 }} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setActive(null)}>
+        <div className="kanban-scroll flex gap-3 overflow-x-auto pb-2">
           {STAGES.map((s) => (
             <Column key={s} stage={s} deals={grouped[s].shown} hiddenCount={grouped[s].hidden} />
           ))}
         </div>
         <DragOverlay>{active ? <Card deal={active} overlay /> : null}</DragOverlay>
       </DndContext>
-      <p className="faint mt-1">* column total excludes deals without an est. size.</p>
+      <p className="faint mt-1">* column total excludes deals without an est. size. <span className="md:hidden">Swipe between stages; press and hold a card to drag it.</span></p>
       {passFor && (
         <PassReasonDialog
           dealName={passFor.name}

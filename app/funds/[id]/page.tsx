@@ -50,7 +50,7 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
         subtitle={<>Vintage {fund.vintage} · {fund.investments.length} investments · {s ? `financials as of ${fmtDate(s.asOfDate)} (${s.batch.fileName})` : "no financials imported"}</>}
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 md:gap-3">
         <Kpi label="Committed" value={<Fig value={fund.committedCapital} fmt={fmtMoneyM} missing="Set committed capital below." />} />
         <Kpi label="Called" value={<Fig value={s?.contributions} fmt={fmtMoneyM} missing={missingReason(s, "Contributions", batch)} />} sub={<Fig value={pctCalled(fund.committedCapital, s?.contributions)} fmt={fmtRatioPct} missing="needs committed + called" />} />
         <Kpi label="Uncalled" value={<Fig value={uncalled(fund.committedCapital, s?.contributions)} fmt={fmtMoneyM} missing="Needs committed capital and imported contributions." />} />

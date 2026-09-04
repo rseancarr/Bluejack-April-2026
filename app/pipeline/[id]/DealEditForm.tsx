@@ -12,10 +12,10 @@ export function DealEditForm({ deal, fundIds, funds, members }: { deal: Deal; fu
   const router = useRouter();
   return (
     <form
-      className="grid grid-cols-2 gap-3"
+      className="grid grid-cols-1 sm:grid-cols-2 gap-3"
       action={(fd) => start(async () => { const r = await updateDeal(deal.id, fd); setMsg(r.error ?? "Saved"); })}
     >
-      <div className="col-span-2"><label className="lbl">Name</label><input name="name" className="input" defaultValue={deal.name} required /></div>
+      <div className="sm:col-span-2"><label className="lbl">Name</label><input name="name" className="input" defaultValue={deal.name} required /></div>
       <div><label className="lbl">Funds targeted</label>
         <select name="fundIds" className="select h-20" multiple defaultValue={fundIds}>{funds.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select></div>
       <div className="space-y-3">
@@ -28,9 +28,9 @@ export function DealEditForm({ deal, fundIds, funds, members }: { deal: Deal; fu
       <div><label className="lbl">Sector</label><input name="sector" className="input" defaultValue={deal.sector ?? ""} /></div>
       <div><label className="lbl">Est. size ($)</label><input name="estSize" className="input num" defaultValue={deal.estSize ?? ""} inputMode="decimal" /></div>
       <div><label className="lbl">Next step</label><input name="nextStep" className="input" defaultValue={deal.nextStep ?? ""} /></div>
-      {deal.stage === "Passed" && <div className="col-span-2"><label className="lbl">Pass reason</label><input name="passReason" className="input" defaultValue={deal.passReason ?? ""} /></div>}
-      <div className="col-span-2"><label className="lbl">Fit notes</label><textarea name="fitNotes" className="textarea" defaultValue={deal.fitNotes ?? ""} /></div>
-      <div className="col-span-2 flex items-center gap-3">
+      {deal.stage === "Passed" && <div className="sm:col-span-2"><label className="lbl">Pass reason</label><input name="passReason" className="input" defaultValue={deal.passReason ?? ""} /></div>}
+      <div className="sm:col-span-2"><label className="lbl">Fit notes</label><textarea name="fitNotes" className="textarea" defaultValue={deal.fitNotes ?? ""} /></div>
+      <div className="sm:col-span-2 flex items-center gap-3">
         <button className="btn" disabled={pending}>Save</button>
         {msg && <span className={msg === "Saved" ? "muted" : "text-neg"}>{msg}</span>}
         <button type="button" className="btn btn-ghost btn-sm ml-auto text-neg" onClick={() => { if (confirm("Delete this deal and its stage history?")) start(async () => { await deleteDeal(deal.id); router.push("/pipeline"); }); }}>Delete deal</button>

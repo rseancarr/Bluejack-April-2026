@@ -124,6 +124,21 @@ brand/tokens.md          design-token proposal + what is still placeholder
   backfilled. The funnel treats "reached S" as having an event at S or a later
   stage (documented in `lib/metrics/README.md`).
 
+### Responsive & installable
+
+- Phone (< 768px): the dashboard, action items (incl. meeting mode), pipeline
+  board, investments and funds tables collapse into cards (`tbl-cards` +
+  `data-label`); inputs and buttons are 42px tall with 16px text (no iOS zoom);
+  a bottom tab bar replaces the top nav; modals open as bottom sheets; the kanban
+  scrolls horizontally one column per screen and cards drag after a long press.
+- iPad and up: the desktop layout. Data-heavy tables (funnel, import preview,
+  fund reconciliation) scroll inside their own container and never widen the page.
+- PWA: `app/manifest.ts` serves the web manifest; icons live in `public/icons/`
+  (placeholders, see `brand/tokens.md`); `public/sw.js` is a network-only service
+  worker registered by `components/PwaRegister.tsx`. It deliberately caches
+  nothing so financial figures can never be served stale. On iOS use Share → Add
+  to Home Screen; on Android/Chrome use the install prompt or menu → Install app.
+
 ### Moving to Postgres later
 
 Change `provider = "sqlite"` to `"postgresql"` in `prisma/schema.prisma`, point

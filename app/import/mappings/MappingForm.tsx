@@ -7,9 +7,9 @@ export function MappingForm({ funds, investments }: { funds: { id: string; name:
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLFormElement>(null);
   return (
-    <form ref={ref} className="flex items-end gap-2" action={(fd) => start(async () => { const r = await upsertMapping(fd); setError(r.error ?? null); if (!r.error) ref.current?.reset(); })}>
-      <div className="flex-1"><label className="lbl">Name exactly as in the workbook</label><input name="sourceName" className="input" required /></div>
-      <div className="w-72"><label className="lbl">Maps to</label>
+    <form ref={ref} className="flex flex-wrap items-end gap-2" action={(fd) => start(async () => { const r = await upsertMapping(fd); setError(r.error ?? null); if (!r.error) ref.current?.reset(); })}>
+      <div className="flex-1 min-w-[200px]"><label className="lbl">Name exactly as in the workbook</label><input name="sourceName" className="input" required /></div>
+      <div className="w-full sm:w-72"><label className="lbl">Maps to</label>
         <select name="target" className="select" defaultValue="">
           <option value="">—</option>
           <optgroup label="Investments">{investments.map((i) => <option key={i.id} value={`investment:${i.id}`}>{i.name}</option>)}</optgroup>

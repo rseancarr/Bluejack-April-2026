@@ -24,9 +24,9 @@ export function FilterBar({ filters, current, basePath }: { filters: FilterDef[]
   return (
     <div className="flex items-end gap-2 flex-wrap">
       {filters.map((f) => (
-        <div key={f.key}>
+        <div key={f.key} className="flex-1 min-w-[140px] sm:flex-none">
           <label className="lbl">{f.label}</label>
-          <select className="select w-44" value={current[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)}>
+          <select className="select w-full sm:w-44" value={current[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)}>
             <option value="">{f.emptyLabel ?? "All"}</option>
             {f.options.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>

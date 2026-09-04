@@ -42,7 +42,7 @@ export default async function InvestmentsPage({ searchParams }: { searchParams: 
         ]}
       />
       <div className="tbl-wrap mt-3">
-        <table className="tbl">
+        <table className="tbl tbl-cards">
           <thead>
             <tr>
               <th>Name</th>
@@ -62,16 +62,16 @@ export default async function InvestmentsPage({ searchParams }: { searchParams: 
               const s = snaps.get(i.id);
               return (
                 <tr key={i.id}>
-                  <td><Link href={`/investments/${i.id}`} className="link font-medium">{i.name}</Link></td>
-                  <td><Link href={`/funds/${i.fund.id}`} className="hover:underline">{i.fund.name}</Link></td>
-                  <td>{i.bucket}</td>
-                  <td className="muted">{i.sector ?? "—"}</td>
-                  <td className="num"><Fig value={s?.cost} fmt={fmtMoneyM} missing={missingReason(s, "Cost", batch)} /></td>
-                  <td className="num"><Fig value={s?.nav} fmt={fmtMoneyM} missing={missingReason(s, "NAV", batch)} /></td>
-                  <td className="num"><Fig value={s?.moic} fmt={fmtMultiple} missing={missingReason(s, "MOIC", batch)} /></td>
-                  <td><StatusBadge status={i.status} /></td>
-                  <td className="whitespace-nowrap">{s ? fmtDate(s.asOfDate) : <span className="missing" title={missingReason(s, "", batch)}>—</span>}</td>
-                  <td className="whitespace-nowrap">{i.documents[0] ? fmtDate(i.documents[0].date) : <span className="faint" title="No quarterly report uploaded">—</span>}</td>
+                  <td className="card-title"><Link href={`/investments/${i.id}`} className="link font-medium">{i.name}</Link></td>
+                  <td data-label="Fund"><Link href={`/funds/${i.fund.id}`} className="hover:underline">{i.fund.name}</Link></td>
+                  <td data-label="Bucket">{i.bucket}</td>
+                  <td className="muted card-hide">{i.sector ?? "—"}</td>
+                  <td className="num" data-label="Cost"><Fig value={s?.cost} fmt={fmtMoneyM} missing={missingReason(s, "Cost", batch)} /></td>
+                  <td className="num" data-label="Mark (NAV)"><Fig value={s?.nav} fmt={fmtMoneyM} missing={missingReason(s, "NAV", batch)} /></td>
+                  <td className="num" data-label="MOIC (rep.)"><Fig value={s?.moic} fmt={fmtMultiple} missing={missingReason(s, "MOIC", batch)} /></td>
+                  <td data-label="Status"><StatusBadge status={i.status} /></td>
+                  <td className="whitespace-nowrap" data-label="As of">{s ? fmtDate(s.asOfDate) : <span className="missing" title={missingReason(s, "", batch)}>—</span>}</td>
+                  <td className="whitespace-nowrap card-hide">{i.documents[0] ? fmtDate(i.documents[0].date) : <span className="faint" title="No quarterly report uploaded">—</span>}</td>
                 </tr>
               );
             })}

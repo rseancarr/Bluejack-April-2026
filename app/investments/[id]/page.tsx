@@ -47,12 +47,12 @@ export default async function InvestmentPage({ params }: { params: Promise<{ id:
       />
 
       <section>
-        <div className="flex items-baseline justify-between mb-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 mb-2">
           <h3>Financials <span className="normal-case tracking-normal font-normal">· read-only · {asOfLabel}</span></h3>
           {s && <span className="faint">{s.batch.fileName} · sheet {s.sourceSheet} row {s.sourceRow}</span>}
           {!s && seen && <span className="faint">last seen {fmtDate(seen.asOfDate)} in {seen.batch.fileName} — not forward-filled</span>}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 md:gap-3">
           <Kpi label="Cost" value={<Fig value={s?.cost} fmt={fmtMoneyM} missing={missingReason(s, "Cost", batch)} />} />
           <Kpi label="Contributions" value={<Fig value={s?.contributions} fmt={fmtMoneyM} missing={missingReason(s, "Contributions", batch)} />} />
           <Kpi label="Distributions" value={<Fig value={s?.distributions} fmt={fmtMoneyM} missing={missingReason(s, "Distributions", batch)} />} />

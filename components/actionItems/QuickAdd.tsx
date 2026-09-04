@@ -19,7 +19,7 @@ export function QuickAdd({ options, members, defaultOwner, defaultLink = "", mee
   return (
     <form
       ref={ref}
-      className="flex items-center gap-2"
+      className="quick-add flex items-center gap-2"
       action={(fd) =>
         start(async () => {
           const res = await createActionItem(fd);
@@ -36,15 +36,15 @@ export function QuickAdd({ options, members, defaultOwner, defaultLink = "", mee
       }
     >
       {meetingDate && <input type="hidden" name="meetingDate" value={meetingDate} />}
-      <input ref={titleRef} name="title" className="input flex-1" placeholder="Add an action item and press Enter…" autoComplete="off" required />
+      <input ref={titleRef} name="title" className="qa-title input flex-1" placeholder="Add an action item and press Enter…" autoComplete="off" required />
       <select name="owner" className="select w-28" defaultValue={defaultOwner}>
         {members.map((m) => (
           <option key={m} value={m}>{m}</option>
         ))}
       </select>
       <input name="dueDate" type="date" className="input w-36" defaultValue={plusDays(7)} />
-      <LinkSelect options={options} defaultValue={defaultLink} className="select w-52" />
-      <button className="btn" type="submit" disabled={pending}>Add</button>
+      <LinkSelect options={options} defaultValue={defaultLink} className="qa-link select w-52" />
+      <button className="qa-btn btn" type="submit" disabled={pending}>Add</button>
       {error && <span className="text-neg">{error}</span>}
     </form>
   );

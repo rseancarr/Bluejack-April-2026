@@ -21,7 +21,7 @@ export default async function FundsPage() {
     <div>
       <PageHeader title="Funds" subtitle={batch ? `Financials as of ${fmtDate(batch.asOfDate)} · ${batch.fileName}` : "No accounting import committed yet."} />
       <div className="tbl-wrap">
-        <table className="tbl">
+        <table className="tbl tbl-cards">
           <thead>
             <tr>
               <th>Fund</th>
@@ -44,19 +44,19 @@ export default async function FundsPage() {
               const s = snaps.get(f.id);
               return (
                 <tr key={f.id}>
-                  <td><Link href={`/funds/${f.id}`} className="link font-medium">{f.name}</Link></td>
-                  <td className="tnum">{f.vintage}</td>
-                  <td><StatusBadge status={f.status} /></td>
-                  <td className="num">{f._count.investments}</td>
-                  <td className="num"><Fig value={f.committedCapital} fmt={fmtMoneyM} missing="Committed capital not set." /></td>
-                  <td className="num"><Fig value={s?.contributions} fmt={fmtMoneyM} missing={missingReason(s, "Contributions", batch)} /></td>
-                  <td className="num"><Fig value={uncalled(f.committedCapital, s?.contributions)} fmt={fmtMoneyM} missing="Needs committed capital and imported contributions." /></td>
-                  <td className="num"><Fig value={s?.distributions} fmt={fmtMoneyM} missing={missingReason(s, "Distributions", batch)} /></td>
-                  <td className="num"><Fig value={s?.nav} fmt={fmtMoneyM} missing={missingReason(s, "NAV", batch)} /></td>
-                  <td className="num"><Fig value={dpi(s?.distributions, s?.contributions)} fmt={fmtMultiple} missing="Computed: distributions ÷ contributions. An input is missing." /></td>
-                  <td className="num"><Fig value={tvpi(s?.distributions, s?.nav, s?.contributions)} fmt={fmtMultiple} missing="Computed: (distributions + NAV) ÷ contributions. An input is missing." /></td>
-                  <td className="num"><Fig value={s?.irr} fmt={irrFmt} missing={missingReason(s, "IRR", batch)} /></td>
-                  <td className="num"><Fig value={s?.moic} fmt={fmtMultiple} missing={missingReason(s, "MOIC", batch)} /></td>
+                  <td className="card-title"><Link href={`/funds/${f.id}`} className="link font-medium">{f.name}</Link></td>
+                  <td className="tnum" data-label="Vintage">{f.vintage}</td>
+                  <td data-label="Status"><StatusBadge status={f.status} /></td>
+                  <td className="num" data-label="Investments">{f._count.investments}</td>
+                  <td className="num" data-label="Committed"><Fig value={f.committedCapital} fmt={fmtMoneyM} missing="Committed capital not set." /></td>
+                  <td className="num" data-label="Called"><Fig value={s?.contributions} fmt={fmtMoneyM} missing={missingReason(s, "Contributions", batch)} /></td>
+                  <td className="num" data-label="Uncalled"><Fig value={uncalled(f.committedCapital, s?.contributions)} fmt={fmtMoneyM} missing="Needs committed capital and imported contributions." /></td>
+                  <td className="num" data-label="Distributions"><Fig value={s?.distributions} fmt={fmtMoneyM} missing={missingReason(s, "Distributions", batch)} /></td>
+                  <td className="num" data-label="NAV"><Fig value={s?.nav} fmt={fmtMoneyM} missing={missingReason(s, "NAV", batch)} /></td>
+                  <td className="num" data-label="DPI"><Fig value={dpi(s?.distributions, s?.contributions)} fmt={fmtMultiple} missing="Computed: distributions ÷ contributions. An input is missing." /></td>
+                  <td className="num" data-label="TVPI"><Fig value={tvpi(s?.distributions, s?.nav, s?.contributions)} fmt={fmtMultiple} missing="Computed: (distributions + NAV) ÷ contributions. An input is missing." /></td>
+                  <td className="num" data-label="IRR (rep.)"><Fig value={s?.irr} fmt={irrFmt} missing={missingReason(s, "IRR", batch)} /></td>
+                  <td className="num" data-label="MOIC (rep.)"><Fig value={s?.moic} fmt={fmtMultiple} missing={missingReason(s, "MOIC", batch)} /></td>
                 </tr>
               );
             })}
