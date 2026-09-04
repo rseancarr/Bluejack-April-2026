@@ -1,0 +1,11 @@
+[
+  { "entity": "North Wall",   "title": "Ping Fabian to ask for a bid to buy us out", "owner": "Sean" },
+  { "entity": "Omnia",        "title": "Push legal on timing", "owner": "AJ" },
+  { "entity": "Fund models",  "title": "Update IV / V / VI models — ASAP", "owner": "Teddy" },
+  { "entity": "Capacity",     "title": "Update FAP VI capacity for DDE and Lloyd's, and Piloncillo split with VII", "owner": "Teddy" },
+  { "entity": "Holocene",     "title": "Meet with Rob for better reporting on progress", "owner": "Sean", "ownerNote": "owner not stated in the meeting notes — reassign if needed" },
+  { "entity": "Perini",       "title": "Get progress update on sales; potentially push to be more aggressive", "owner": "Teddy" },
+  { "entity": "Axis",         "title": "Reach out to David for a call", "owner": "Sean" },
+  { "entity": "Whitefish",    "title": "Push for Cherry sale update (timing; goal to wrap up before YE)", "owner": "Teddy" },
+  { "entity": "Cross Plains", "title": "Set up a call to get updated CF forecast for CP3 and Rockport forecast", "owner": "Sean", "ownerNote": "owner not stated in the meeting notes — reassign if needed" }
+]

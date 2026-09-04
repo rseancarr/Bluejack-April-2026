@@ -16,18 +16,11 @@ if (!existsSync(".env")) {
 }
 run("npx prisma generate");
 run("npx prisma db push");
-const hasData = (() => {
-  try {
-    return execSync('npx prisma db execute --stdin', { input: "SELECT count(*) FROM Fund;" }).toString();
-  } catch {
-    return "";
-  }
-})();
-void hasData;
+const demo = process.argv.includes("--demo");
 try {
-  run("npx tsx prisma/seed.ts");
+  run(demo ? "npx tsx prisma/seed.ts" : "npx tsx prisma/real.ts");
 } catch {
-  console.log("Seed skipped (database already has data). Run `npm run db:reset` to start over.");
+  console.log("Data load skipped (database already has data). `npm run db:reset` starts over; `npm run db:reset:demo` loads demo data.");
 }
 console.log("\nReady. Start the app with:  npm run dev      then open http://localhost:3000");
 console.log("Phone on the same Wi-Fi:    npm run dev:lan  and open the address it prints");

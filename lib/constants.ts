@@ -52,5 +52,5 @@ export function isSourceType(value: string): value is SourceType {
 export function teamMembers(): string[] {
   const raw = process.env.TEAM_MEMBERS ?? "";
   const list = raw.split(",").map((s) => s.trim()).filter(Boolean);
-  return list.length ? list : ["Sean", "Avery", "Morgan"];
+  return list.length ? list : ["Sean", "AJ", "Teddy"];
 }

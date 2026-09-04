@@ -33,7 +33,7 @@ const round = (n: number, places = 2) => Math.round(n * 10 ** places) / 10 ** pl
 const utc = (y: number, m: number, d: number) => new Date(Date.UTC(y, m - 1, d, 12));
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86_400_000);
 
-const TEAM = (process.env.TEAM_MEMBERS ?? "Sean,Avery,Morgan").split(",").map((s) => s.trim()).filter(Boolean);
+const TEAM = (process.env.TEAM_MEMBERS ?? "Sean,AJ,Teddy").split(",").map((s) => s.trim()).filter(Boolean);
 const TODAY = new Date();
 const SNAPSHOT_1 = "2026-05-31";
 const SNAPSHOT_2 = "2026-06-30";

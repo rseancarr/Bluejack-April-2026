@@ -23,7 +23,8 @@ git clone https://github.com/rseancarr/Bluejack-April-2026.git
 cd Bluejack-April-2026
 git checkout claude/freestone-portfolio-app-v1-1bipcj
 npm install
-npm run setup        # creates .env, builds the database, loads demo data
+npm run setup        # creates .env, builds the database, loads the team's action items
+                     # (add --demo to load fake demo funds/holdings/pipeline instead)
 npm run dev
 ```
 
@@ -52,13 +53,22 @@ Other commands:
 
 | Command | What it does |
 |---|---|
-| `npm run db:wipe` | **Wipes everything**: all tables + `storage/documents` + `storage/imports`. The single command to remove demo data. |
-| `npm run db:reset` | wipe, then seed |
+| `npm run db:wipe` | **Wipes everything**: all tables + `storage/documents` + `storage/imports`. |
+| `npm run db:real` | Loads the team's weekly action items from `prisma/real/action-items.json` (edit that file to change them). Funds and holdings come in through the Import page. |
+| `npm run db:demo` | Loads the fake demo data (funds, holdings, pipeline, imports). |
+| `npm run db:reset` / `db:reset:demo` | wipe, then real / demo |
 | `npm test` | unit tests (metrics, parser, reconciliation/diff, stage events) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run build && npm start` | production build |
 
-### What the seed creates
+### Real vs demo data
+
+`npm run setup` (or `npm run db:real`) starts the app with no funds or holdings and the
+team's current action items, owners Sean / AJ / Teddy. Funds and holdings are created the
+first time each accounting workbook is imported. The demo data described below is only
+loaded with `--demo` / `npm run db:demo`.
+
+### What the demo seed creates
 
 4 funds ("Demo Advantage Partners I–IV LP", vintages 2021/2023/2025/2026), 37
 holdings, ~40 pipeline deals over 2024–2026 with exact stage histories, 15 action
