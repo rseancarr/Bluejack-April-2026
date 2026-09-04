@@ -45,6 +45,8 @@ describe("parseWorkbook: real layout, happy path", () => {
     expect(alpha.fields.contributions).toBeCloseTo(8_671_368.39, 2);
     expect(alpha.fields.distributions).toBeCloseTo(4_677_555.54, 2);
     expect(alpha.extra).toEqual({ "Investment Type": "Other Fund", "Cash flows": 3 });
+    expect(alpha.assetClass).toBe("Energy");
+    expect(parsed.investments[1].assetClass).toBeNull(); // fixture leaves it blank for Beta
     expect(alpha.sources.nav).toBe("Dashboard!D32");
     expect(alpha.sources.cost).toBe("MTM!F4");
     expect(alpha.missingFields).toEqual([]);
@@ -390,6 +392,7 @@ describe.skipIf(!Object.values(JULY).every(existsSync))("July 2026 real files", 
   it("FAP IV (.xlsm) with the exposure table", async () => {
     const p = await parseWorkbook(readFileSync(JULY.iv));
     expect(p.asOfDate).toBe("2026-07-31");
+    expect(p.investments.find((h) => h.name.startsWith("Troubadour"))!.assetClass).toBe("Energy");
     expect(p.exposure?.map((e) => e.assetClass)).toEqual(["Private Equity", "Energy", "Other"]);
     expect(reconcile(p)[0].flagged).toBe(false);
   });

@@ -31,6 +31,7 @@ export default async function InvestmentsPage({ searchParams }: { searchParams: 
             id: i.id,
             name: i.name,
             bucket: i.bucket,
+            assetClass: i.assetClass,
             sector: i.sector,
             status: i.status,
             cost: s?.cost ?? null,

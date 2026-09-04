@@ -45,6 +45,8 @@ export interface ParsedRow {
   holdingStatus: string | null;
   /** True when holdingStatus is one of REALIZED_WORDS. */
   realized: boolean;
+  /** Accounting's asset class for the holding (MTM "Asset Class"), when the workbook has it. */
+  assetClass: string | null;
   missingFields: NumericField[];
   extra: Record<string, ExtraValue>;
   sources: Record<string, string>;
@@ -397,6 +399,7 @@ function readDashboard(ws: ExcelJS.Worksheet, problems: string[], notes: string[
           valuationDate,
           holdingStatus,
           realized,
+          assetClass: null,
           missingFields: [],
           extra: {},
           sources: { nav: s.addr(r, cols.nav!), irr: s.addr(r, cols.irr!), moic: s.addr(r, cols.moic!) },
@@ -455,11 +458,12 @@ function readMtm(wb: ExcelJS.Workbook, problems: string[]) {
   const typeCol = s.findCol(hRow, MTM.columns.type);
   const vdCol = s.findCol(hRow, MTM.columns.valuationDate);
   const srcCol = s.findCol(hRow, MTM.columns.source);
+  const acCol = s.findCol(hRow, MTM.columns.assetClass);
   if (!costCol) {
     problems.push(`${s.name} row ${hRow}: missing column header "${MTM.columns.cost}"`);
     return null;
   }
-  const byName = new Map<string, { cost: number | null; type: string | null; source: string | null; valuationDate: string | null; src: string }>();
+  const byName = new Map<string, { cost: number | null; type: string | null; source: string | null; assetClass: string | null; valuationDate: string | null; src: string }>();
   let totalCost: number | null = null;
   for (let r = hRow + 1; r <= ws.rowCount; r++) {
     const name = s.text(r, 2);
@@ -474,9 +478,9 @@ function readMtm(wb: ExcelJS.Workbook, problems: string[]) {
       const d = dateOf(s.cell(r, vdCol));
       if (typeof d === "string") vd = d;
     }
-    byName.set(norm(name), { cost: s.num(r, costCol, `${name} cost`), type: typeCol ? s.text(r, typeCol) : null, source: srcCol ? s.text(r, srcCol) : null, valuationDate: vd, src: s.addr(r, costCol) });
+    byName.set(norm(name), { cost: s.num(r, costCol, `${name} cost`), type: typeCol ? s.text(r, typeCol) : null, source: srcCol ? s.text(r, srcCol) : null, assetClass: acCol ? s.text(r, acCol) || null : null, valuationDate: vd, src: s.addr(r, costCol) });
   }
-  return { byName, totalCost, sheet: s.name };
+  return { byName, totalCost, sheet: s.name, hasAssetClass: !!acCol };
 }
 
 function readIrrDetail(wb: ExcelJS.Workbook, problems: string[]) {
@@ -555,6 +559,7 @@ async function parseDashboardLayout(wb: ExcelJS.Workbook, dashWs: ExcelJS.Worksh
       h.sources.cost = m.src;
       if (m.type) h.extra["Investment Type"] = m.type;
       if (m.source) h.extra["Valuation source"] = m.source;
+      if (m.assetClass) h.assetClass = m.assetClass;
       if (!h.valuationDate && m.valuationDate) {
         h.valuationDate = m.valuationDate;
         h.sources.valuationDate = `${mtm!.sheet} (${MTM.columns.valuationDate})`;
@@ -571,6 +576,7 @@ async function parseDashboardLayout(wb: ExcelJS.Workbook, dashWs: ExcelJS.Worksh
     h.missingFields = NUMERIC_FIELDS.filter((f) => h.fields[f] === null);
   }
   if (problems.length) throw new ParseError(problems);
+  if (mtm && !mtm.hasAssetClass) notes.push(`No "${MTM.columns.assetClass}" column on ${mtm.sheet}; holdings keep their current asset class.`);
 
   const total = dash.classes.total;
   const fund: ParsedFund = {
@@ -585,6 +591,7 @@ async function parseDashboardLayout(wb: ExcelJS.Workbook, dashWs: ExcelJS.Worksh
     valuationDate: null,
     holdingStatus: null,
     realized: false,
+    assetClass: null,
     missingFields: [],
     extra: {},
     sources: {
@@ -828,6 +835,7 @@ async function parseWinddownLayout(wb: ExcelJS.Workbook): Promise<ParsedWorkbook
       valuationDate: markDates.get(key) ?? null,
       holdingStatus: realized ? "Closed" : null,
       realized,
+      assetClass: null,
       missingFields: NUMERIC_FIELDS.filter((f) => fields[f] === null),
       extra,
       sources,
@@ -856,6 +864,7 @@ async function parseWinddownLayout(wb: ExcelJS.Workbook): Promise<ParsedWorkbook
     valuationDate: null,
     holdingStatus: null,
     realized: false,
+    assetClass: null,
     missingFields: [],
     extra: {},
     sources: { cost: `${mtm.name} Total`, contributions: contrib.src, distributions: `${dist.src}${roc.value !== null ? ` + ${roc.src}` : ""}`, nav: nav.src, redemptions: red.src, gpCarryDistributions: carry.src },

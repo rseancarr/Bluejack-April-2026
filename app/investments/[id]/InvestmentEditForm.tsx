@@ -19,7 +19,7 @@ export function InvestmentEditForm({ investment: inv }: { investment: Investment
       }
     >
       <div className="sm:col-span-2"><label className="lbl">Name</label><input name="name" className="input" defaultValue={inv.name} required /></div>
-      <div><label className="lbl">Bucket</label>
+      <div><label className="lbl">Bucket <span className="normal-case tracking-normal">(yours{inv.assetClass ? `; accounting says ${inv.assetClass}` : ""})</span></label>
         <select name="bucket" className="select" defaultValue={inv.bucket}>{BUCKETS.map((b) => <option key={b} value={b}>{b}</option>)}</select></div>
       <div><label className="lbl">Status</label>
         <select name="status" className="select" defaultValue={inv.status}>{INVESTMENT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}</select></div>

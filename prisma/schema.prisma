@@ -46,7 +46,8 @@ model Investment {
   fundId       String
   fund         Fund      @relation(fields: [fundId], references: [id])
   name         String
-  bucket       String    // Energy | LMM PE | Opportunistic
+  bucket       String    // Energy | LMM PE | Opportunistic — the team's own strategy tag
+  assetClass   String?   // accounting's "Asset Class" from the MTM tab (Private Equity, Energy, …); refreshed on each import
   sector       String?
   entryDate    DateTime?
   ownershipPct Float?    // pipeline/ops datum, editable

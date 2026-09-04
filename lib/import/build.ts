@@ -9,6 +9,7 @@ export interface HoldingSpec {
   moic: number | null;
   cost: number | null; // MTM row; null = not on MTM sheet
   type?: string | null;
+  assetClass?: string | null;
   flows: { date: Date; cash: number | string }[]; // IRR Detail block; negative = contribution
   onIrrDetail?: boolean; // default true
 }
@@ -62,7 +63,7 @@ export function goodSpec(): WorkbookSpec {
       totalValue: { nonAffiliate: 467_333_222.19, affiliate: 37_133_723.28, gpCarry: 40_329_392.15, total: 544_796_337.62 },
     },
     holdings: [
-      { name: "Alpha Energy Fund II, LP", valuationDate: d(2026, 3, 31), nav: 7_760_738.86, irr: 0.1248, moic: (4_677_555.54 + 7_760_738.86) / 8_671_368.39, cost: 8_671_368.39, type: "Other Fund", flows: [{ date: d(2021, 12, 22), cash: -2_645_019.48 }, { date: d(2022, 3, 31), cash: -6_026_348.91 }, { date: d(2023, 6, 15), cash: 4_677_555.54 }] },
+      { name: "Alpha Energy Fund II, LP", valuationDate: d(2026, 3, 31), nav: 7_760_738.86, irr: 0.1248, moic: (4_677_555.54 + 7_760_738.86) / 8_671_368.39, cost: 8_671_368.39, type: "Other Fund", assetClass: "Energy", flows: [{ date: d(2021, 12, 22), cash: -2_645_019.48 }, { date: d(2022, 3, 31), cash: -6_026_348.91 }, { date: d(2023, 6, 15), cash: 4_677_555.54 }] },
       { name: "Beta Production Partners LP", valuationDate: d(2026, 3, 31), nav: 14_504_492, irr: 0.2236, moic: (12_846_786 + 14_504_492) / 14_757_121, cost: 15_023_087, type: "Other Fund", flows: [{ date: d(2022, 5, 19), cash: -14_757_121 }, { date: d(2024, 1, 9), cash: 12_846_786 }] },
       { name: "Gamma Holdings LLC", valuationDate: "Closed", nav: null, irr: -0.0694, moic: 15_947_822.8 / 18_078_636, cost: null, type: "JV Interest", flows: [{ date: d(2021, 12, 22), cash: -18_078_636 }, { date: d(2025, 3, 25), cash: 15_947_822.8 }] },
     ],
@@ -173,7 +174,7 @@ export async function buildExcel(spec: WorkbookSpec): Promise<ExcelJS.Workbook> 
   // ---- MTM ----
   const mtm = wb.addWorksheet(names.mtm);
   mtm.getCell("B2").value = `${spec.fundName} - Mark to Market`;
-  ["Investment", "Source", "Date of Valuation", "FS Value", "Cost", "MTM", "PY MTM", "CY Unrealized", null, "Admin FMV", "Check", "Admin Unrealized", "Check", null, "Investment Type"].forEach((h, i) => {
+  ["Investment", "Source", "Date of Valuation", "FS Value", "Cost", "MTM", "PY MTM", "CY Unrealized", null, "Admin FMV", "Check", "Admin Unrealized", "Check", null, "Investment Type", "Asset Class"].forEach((h, i) => {
     if (h) mtm.getRow(3).getCell(2 + i).value = h;
   });
   let mr = 4;
@@ -184,6 +185,7 @@ export async function buildExcel(spec: WorkbookSpec): Promise<ExcelJS.Workbook> 
     mtm.getCell(`E${mr}`).value = h.nav;
     mtm.getCell(`F${mr}`).value = h.cost;
     if (h.type) mtm.getCell(`P${mr}`).value = h.type;
+    if (h.assetClass) mtm.getCell(`Q${mr}`).value = h.assetClass;
     mr++;
   }
   mr++; // blank row before Total (as in the real file)

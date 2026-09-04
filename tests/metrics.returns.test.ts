@@ -1,4 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { bucketForAssetClass } from "@/lib/constants";
+
+describe("bucketForAssetClass", () => {
+  it("maps accounting's asset class to a default bucket", () => {
+    expect(bucketForAssetClass("Energy")).toBe("Energy");
+    expect(bucketForAssetClass("Private Equity")).toBe("LMM PE");
+    expect(bucketForAssetClass("Structured Credit")).toBe("Opportunistic");
+    expect(bucketForAssetClass(null)).toBe("Opportunistic");
+  });
+});
 import { dpi, tvpi, moicComputed, uncalled, pctCalled, sumStrict, sumAvailable, pctChange, unrealizedGain, rvpi } from "@/lib/metrics/returns";
 
 describe("return metrics: null in → null out", () => {

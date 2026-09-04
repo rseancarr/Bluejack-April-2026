@@ -7,6 +7,7 @@ export interface InvRow {
   id: string;
   name: string;
   bucket: string;
+  assetClass: string | null;
   sector: string | null;
   status: string;
   cost: number | null;
@@ -75,8 +76,9 @@ export function GroupedInvestmentsTable({ groups }: { groups: FundGroup[] }) {
           <thead>
             <tr>
               <th>Name</th>
+              <th>Asset class</th>
               <th>Bucket</th>
-              <th>Sector / type</th>
+              <th>Type</th>
               <th className="num">Cost</th>
               <th className="num">Mark (NAV)</th>
               <th className="num">IRR</th>
@@ -91,7 +93,7 @@ export function GroupedInvestmentsTable({ groups }: { groups: FundGroup[] }) {
             {groups.map((g) => (
               <GroupRows key={g.id} g={g} open={!collapsed.has(g.id)} onToggle={() => toggle(g.id)} />
             ))}
-            {groups.length === 0 && <tr><td colSpan={11} className="muted text-center py-6">No investments match.</td></tr>}
+            {groups.length === 0 && <tr><td colSpan={12} className="muted text-center py-6">No investments match.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -104,7 +106,7 @@ function GroupRows({ g, open, onToggle }: { g: FundGroup; open: boolean; onToggl
   return (
     <>
       <tr className="group-row">
-        <td colSpan={3}>
+        <td colSpan={4}>
           <button type="button" className="inline-flex items-center gap-2 font-medium text-navy-2" onClick={onToggle} aria-expanded={open}>
             <span className={`inline-block transition-transform ${open ? "rotate-90" : ""}`} aria-hidden="true">▸</span>
             <span className="font-serif text-[14px]">{g.name}</span>
@@ -122,7 +124,8 @@ function GroupRows({ g, open, onToggle }: { g: FundGroup; open: boolean; onToggl
         g.rows.map((r) => (
           <tr key={r.id}>
             <td className="pl-7"><Link href={`/investments/${r.id}`} className="link">{r.name}</Link></td>
-            <td>{r.bucket}</td>
+            <td>{r.assetClass ?? <span className="faint" title="Not in this fund's accounting file (the Asset Class column starts in July 2026)">—</span>}</td>
+            <td className="muted">{r.bucket}</td>
             <td className="muted">{r.sector ?? "—"}</td>
             <td className="num"><Fig value={r.cost} fmt={fmtMoneyM} missing={r.missing.cost} /></td>
             <td className="num"><Fig value={r.nav} fmt={fmtMoneyM} missing={r.missing.nav} /></td>

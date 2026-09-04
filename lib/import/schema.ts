@@ -28,8 +28,12 @@
  *    A holding is realized when that cell says Closed / Realized / Disposed / Exited / Sold /
  *    Liquidated.
  *
- * 2. "MTM" — Investment | Date of Valuation | FS Value | Cost | … | Investment Type.
- *    Supplies Cost per holding (matched by exact holding name) and the investment type.
+ * 2. "MTM" — Investment | Date of Valuation | FS Value | Cost | … | Investment Type | Asset Class.
+ *    Supplies Cost per holding (matched by exact holding name), the investment type and, from
+ *    July 2026, the asset class the dashboard's exposure table is built from. The app stores
+ *    it on the holding and maps it to a default strategy bucket when a holding is first created
+ *    (Energy → Energy, Private Equity → LMM PE, anything else → Opportunistic); the bucket stays
+ *    editable, the asset class is refreshed on every import.
  *
  * 3. "IRR Detail" — per-investment cash-flow columns (name in the row above "Date | Cash"),
  *    flows down to the row labelled "Current Value" (exclusive).
@@ -120,7 +124,7 @@ export const DASHBOARD = {
 
 export const MTM = {
   headerName: "Investment",
-  columns: { cost: "Cost", valuationDate: "Date of Valuation", fsValue: "FS Value", type: "Investment Type", source: "Source" },
+  columns: { cost: "Cost", valuationDate: "Date of Valuation", fsValue: "FS Value", type: "Investment Type", source: "Source", assetClass: "Asset Class" },
   totalLabel: "Total",
 } as const;
 

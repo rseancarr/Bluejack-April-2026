@@ -3,6 +3,7 @@ import { prisma } from "../db";
 import type { ParsedWorkbook } from "./parser";
 import { resolveWorkbook, type UserResolutions } from "./match";
 import { reconcile } from "./reconcile";
+import { bucketForAssetClass } from "../constants";
 
 export class CommitError extends Error {}
 
@@ -71,7 +72,8 @@ export async function commitBatch(batchId: string): Promise<{ snapshots: number;
           data: {
             name: row.name,
             fundId: i.fundId,
-            bucket: i.bucket ?? "LMM PE",
+            bucket: i.bucket ?? bucketForAssetClass(row.assetClass),
+            assetClass: row.assetClass,
             externalId: null,
             status: row.realized ? "realized" : "active",
             sector: typeof row.extra["Investment Type"] === "string" ? (row.extra["Investment Type"] as string) : null,
@@ -86,6 +88,7 @@ export async function commitBatch(batchId: string): Promise<{ snapshots: number;
         });
       }
       if (row.realized) await tx.investment.updateMany({ where: { id: investmentId, status: "active" }, data: { status: "realized" } });
+      if (row.assetClass) await tx.investment.update({ where: { id: investmentId }, data: { assetClass: row.assetClass } });
       await tx.financialSnapshot.create({
         data: {
           batchId,

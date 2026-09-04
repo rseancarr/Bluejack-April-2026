@@ -44,7 +44,7 @@ export default async function InvestmentPage({ params }: { params: Promise<{ id:
     <div className="space-y-6">
       <PageHeader
         title={<span className="flex items-center gap-3">{inv.name} <StatusBadge status={inv.status} /></span>}
-        subtitle={<><Link href={`/funds/${inv.fund.id}`} className="link">{inv.fund.name}</Link> · {inv.bucket}{inv.sector ? ` · ${inv.sector}` : ""} · entered {fmtDate(inv.entryDate)}{inv.externalId ? <span className="mono ml-2">{inv.externalId}</span> : <span className="faint ml-2">no accounting ID</span>}</>}
+        subtitle={<><Link href={`/funds/${inv.fund.id}`} className="link">{inv.fund.name}</Link>{inv.assetClass ? ` · ${inv.assetClass} (accounting)` : ""} · bucket {inv.bucket}{inv.sector ? ` · ${inv.sector}` : ""} · entered {fmtDate(inv.entryDate)}{inv.externalId ? <span className="mono ml-2">{inv.externalId}</span> : <span className="faint ml-2">no accounting ID</span>}</>}
       />
 
       <section>

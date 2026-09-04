@@ -39,6 +39,14 @@ export const MARK_CHANGE_FLAG_PCT = 10;
 /** Reconciliation tolerance in dollars: |sum(investments) - fund figure| above this is flagged. */
 export const RECONCILIATION_TOLERANCE_USD = 1;
 
+/** Default strategy bucket for a newly created holding, from accounting's asset class. Editable afterwards. */
+export function bucketForAssetClass(assetClass: string | null | undefined): Bucket {
+  const a = (assetClass ?? "").trim().toLowerCase();
+  if (a === "energy") return "Energy";
+  if (a === "private equity") return "LMM PE";
+  return "Opportunistic";
+}
+
 export function isStage(value: string): value is Stage {
   return (STAGES as readonly string[]).includes(value);
 }
