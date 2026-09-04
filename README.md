@@ -11,19 +11,42 @@ monthly Excel workbook and are never typed in by hand.
 
 ---
 
-## Setup
+## Try it
+
+### On your computer (10 minutes, one time)
+
+1. Install **Node.js** (LTS) from https://nodejs.org and **Git** from https://git-scm.com. Accept the defaults.
+2. Open a terminal (Windows: "Git Bash"; Mac: "Terminal") and run:
 
 ```bash
-cp .env.example .env          # set APP_PASSWORD, TEAM_MEMBERS, SESSION_SECRET
+git clone https://github.com/rseancarr/Bluejack-April-2026.git
+cd Bluejack-April-2026
+git checkout claude/freestone-portfolio-app-v1-1bipcj
 npm install
-npx prisma generate
-npx prisma db push            # creates prisma/dev.db
-npm run db:seed               # demo data (see below)
-npm run dev                   # http://localhost:3000
+npm run setup        # creates .env, builds the database, loads demo data
+npm run dev
 ```
 
-Sign in with the shared password from `.env` and pick your name (names come from
-`TEAM_MEMBERS`; the choice drives "my open items" and owner defaults).
+3. Open http://localhost:3000. Password is `freestone` (change `APP_PASSWORD` in `.env`);
+   pick your name from the list (`TEAM_MEMBERS` in `.env`).
+
+After the first time, it is just `cd Bluejack-April-2026` then `npm run dev`.
+
+### On your phone (same Wi-Fi as the computer)
+
+Run `npm run dev:lan` instead of `npm run dev`. It prints an address like
+`http://192.168.1.23:3000`; open that in Safari or Chrome on the phone. To install it like
+an app: iPhone → Share → **Add to Home Screen**; Android → menu → **Install app**.
+The phone only works while the computer is running the app.
+
+### Hosted (so the whole team can use it from anywhere)
+
+The included `Dockerfile` runs on Railway, Render or Fly.io. It needs a persistent disk
+mounted at `/data` (database + uploaded files) and the environment variables listed at the
+top of the Dockerfile. Put it behind HTTPS (all three do this by default) so the
+home-screen install works everywhere.
+
+## Setup (manual, if you prefer)
 
 Other commands:
 
