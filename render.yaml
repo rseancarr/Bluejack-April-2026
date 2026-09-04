@@ -1,0 +1,27 @@
+# Render Blueprint: one web service with a persistent disk for the SQLite database and uploads.
+# In Render: New → Blueprint → pick this repo and the branch → Apply. Then set APP_PASSWORD.
+services:
+  - type: web
+    name: freestone-portfolio
+    runtime: docker
+    plan: starter
+    branch: claude/freestone-portfolio-app-v1-1bipcj
+    autoDeploy: true
+    healthCheckPath: /login
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 5
+    envVars:
+      - key: DATABASE_URL
+        value: file:/data/app.db
+      - key: STORAGE_DIR
+        value: /data/storage
+      - key: TEAM_MEMBERS
+        value: Sean,AJ,Teddy
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: APP_PASSWORD
+        sync: false   # you type this in once during setup
+      - key: NODE_ENV
+        value: production

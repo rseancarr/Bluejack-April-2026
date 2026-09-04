@@ -54,12 +54,21 @@ Run `npm run dev:lan` instead of `npm run dev`. It prints an address like
 an app: iPhone → Share → **Add to Home Screen**; Android → menu → **Install app**.
 The phone only works while the computer is running the app.
 
-### Hosted (so the whole team can use it from anywhere)
+### Hosted (so the whole team can use it from anywhere, and updates arrive by themselves)
 
-The included `Dockerfile` runs on Railway, Render or Fly.io. It needs a persistent disk
-mounted at `/data` (database + uploaded files) and the environment variables listed at the
-top of the Dockerfile. Put it behind HTTPS (all three do this by default) so the
-home-screen install works everywhere.
+`render.yaml` is a Render Blueprint: one small web service with a 5 GB persistent disk for the
+database and uploaded files, auto-deploying from the app's branch on every push.
+
+1. Create an account at https://render.com and connect it to GitHub (it asks during sign-up).
+2. Click **New → Blueprint**, choose this repository and the branch named in `render.yaml`,
+   and click **Apply**. When it asks for `APP_PASSWORD`, type the team password.
+3. Wait a few minutes for the first build. Render shows the address (something like
+   `https://freestone-portfolio.onrender.com`).
+4. Open it, sign in, and load the accounting workbooks through the Import page (one file at
+   a time). The data on your laptop does not move over by itself.
+
+From then on, every push to the branch redeploys automatically. Cost is Render's Starter plan
+plus the disk (roughly $8–10/month). The same `Dockerfile` also works on Railway or Fly.io.
 
 ## Setup (manual, if you prefer)
 
