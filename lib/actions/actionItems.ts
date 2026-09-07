@@ -70,22 +70,36 @@ export async function updateActionItem(id: string, formData: FormData): Promise<
   const due = s(formData, "dueDate");
   const link = s(formData, "link");
   const target = parseLink(link);
+  const status = formData.has("statusEditable") ? (formData.get("done") === "on" ? "done" : "open") : null;
+  const current = await prisma.actionItem.findUnique({ where: { id }, select: { status: true } });
   await prisma.actionItem.update({
     where: { id },
     data: {
       title,
       owner: s(formData, "owner") ?? undefined,
       dueDate: due ? new Date(`${due}T12:00:00Z`) : null,
+      notes: s(formData, "notes"),
+      pinned: formData.has("statusEditable") ? formData.get("pinned") === "on" : undefined,
+      status: status ?? undefined,
+      completedAt: status === "done" && current?.status !== "done" ? new Date() : status === "open" ? null : undefined,
       investmentId: target.investmentId ?? null,
       dealId: target.dealId ?? null,
       fundId: target.fundId ?? null,
     },
   });
   revalidate();
+  for (const p of ["investments", "pipeline", "funds"]) revalidatePath(`/${p}`, "layout");
   return {};
 }
 
 export async function deleteActionItem(id: string) {
   await prisma.actionItem.delete({ where: { id } });
   revalidate();
+}
+
+/** Data the task dialog needs, fetched when it opens so any page can host it. */
+export async function taskDialogData() {
+  const { linkOptions } = await import("@/lib/queries/actionItems");
+  const { teamMembers } = await import("@/lib/constants");
+  return { options: await linkOptions(), members: teamMembers() };
 }

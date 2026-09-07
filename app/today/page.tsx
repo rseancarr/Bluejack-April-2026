@@ -3,7 +3,8 @@ import { prisma } from "@/lib/db";
 import { currentUser } from "@/lib/auth";
 import { teamMembers } from "@/lib/constants";
 import { fmtDate } from "@/lib/format";
-import { actionItemInclude, linkOf, sortByUrgency, startOfDay, type ActionItemRow } from "@/lib/queries/actionItems";
+import { actionItemInclude, linkOf, sortByUrgency, startOfDay, taskForDialog, type ActionItemRow } from "@/lib/queries/actionItems";
+import { TaskLink } from "@/components/actionItems/TaskLink";
 import { DoneToggle } from "@/components/actionItems/DoneToggle";
 import { PinToggle } from "@/components/actionItems/PinToggle";
 import { TodayControls } from "./TodayControls";
@@ -97,7 +98,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
                       <span className="daycard-box no-print"><DoneToggle id={it.id} done={false} /></span>
                       <span className="daycard-box print-only" aria-hidden="true" />
                       <span className="daycard-text">
-                        <span className="daycard-title">{it.title}</span>
+                        <span className="daycard-title"><TaskLink task={taskForDialog(it)} /></span>
                         <span className="daycard-meta">
                           {link && <Link href={link.href} className="daycard-link">{link.label}</Link>}
                           {it.dueDate && <span className={g.tone === "overdue" ? "text-rust" : ""}>due {fmtDate(it.dueDate)}</span>}

@@ -73,3 +73,19 @@ export async function linkOptions() {
 }
 
 export type LinkOptions = Awaited<ReturnType<typeof linkOptions>>;
+
+/** Serializable payload for the in-place task dialog. */
+export function taskForDialog(item: ActionItemRow & { notes?: string | null; pinned?: boolean }) {
+  const link = linkOf(item);
+  return {
+    id: item.id,
+    title: item.title,
+    owner: item.owner,
+    dueDate: item.dueDate ? item.dueDate.toISOString().slice(0, 10) : null,
+    status: item.status,
+    pinned: item.pinned ?? false,
+    notes: item.notes ?? null,
+    link: item.investmentId ? `investment:${item.investmentId}` : item.dealId ? `deal:${item.dealId}` : item.fundId ? `fund:${item.fundId}` : "",
+    linkLabel: link ? link.label : null,
+  };
+}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { fmtDate } from "@/lib/format";
-import { isOverdue, linkOf, type ActionItemRow } from "@/lib/queries/actionItems";
+import { isOverdue, linkOf, taskForDialog, type ActionItemRow } from "@/lib/queries/actionItems";
+import { TaskLink } from "./TaskLink";
 import { DoneToggle } from "./DoneToggle";
 import { PinToggle } from "./PinToggle";
 import { Empty } from "@/components/ui/Empty";
@@ -26,7 +27,8 @@ export function ItemsTable({ items, showOwner = true, showLink = true, emptyText
               <tr key={it.id} className={it.status === "done" ? "opacity-60" : ""}>
                 <td className={`card-title ${it.status === "done" ? "line-through" : ""}`}>
                   <span className="inline-flex items-start gap-2.5"><DoneToggle id={it.id} done={it.status === "done"} />
-                  <Link href={`/action-items?edit=${it.id}`} className="hover:underline">{it.title}</Link>
+                  <TaskLink task={taskForDialog(it)} />
+                  {it.notes && <span className="faint" title={it.notes}>✎</span>}
                   <PinToggle id={it.id} pinned={it.pinned} /></span>
                   {it.createdFrom === "meeting" && it.meetingDate && <span className="faint ml-2">mtg {fmtDate(it.meetingDate)}</span>}
                 </td>
