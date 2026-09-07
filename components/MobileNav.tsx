@@ -10,7 +10,7 @@ const PRIMARY = [
   { href: "/investments", label: "Invest.", icon: "M4 19h16M6 15l4-5 4 3 4-6" },
 ];
 const MORE_FUNNEL = { href: "/pipeline/funnel", label: "Funnel" };
-const MORE = [MORE_FUNNEL, { href: "/action-items/meeting", label: "Meeting mode" }, { href: "/import", label: "Import" }];
+const MORE = [{ href: "/today", label: "My day (printable card)" }, MORE_FUNNEL, { href: "/action-items/meeting", label: "Meeting mode" }, { href: "/import", label: "Import" }];
 
 export function MobileNav({ logout, quickAdd }: { logout: () => Promise<void>; quickAdd?: React.ReactNode }) {
   const pathname = usePathname();

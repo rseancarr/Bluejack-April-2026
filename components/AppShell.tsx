@@ -13,6 +13,7 @@ import { teamMembers } from "@/lib/constants";
 
 const NAV = [
   { href: "/", label: "Home" },
+  { href: "/today", label: "My day" },
   { href: "/investments", label: "Investments" },
   { href: "/pipeline", label: "Pipeline" },
   { href: "/pipeline/funnel", label: "Funnel" },

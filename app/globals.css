@@ -213,3 +213,36 @@ table.tbl tbody tr.group-row:hover td { background: var(--color-paper-3); }
 @media (max-width: 767px) {
   table.tbl tbody tr.group-row td { display: table-cell; }
 }
+
+/* ---------- My day card ---------- */
+.daycard { background: var(--color-paper); border: 1px solid var(--color-line); border-radius: var(--radius-md); padding: 18px 22px; max-width: 720px; }
+.daycard-card { max-width: 560px; }
+.daycard-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid var(--color-navy); padding-bottom: 8px; margin-bottom: 10px; }
+.daycard-name { font-family: var(--font-serif); font-size: 22px; color: var(--color-navy-2); }
+.daycard-date { color: var(--color-ink-3); font-size: 12.5px; }
+.daycard-count { color: var(--color-ink-3); font-size: 12px; }
+.daycard-group { margin-top: 10px; }
+.daycard-group h3 { margin-bottom: 4px; }
+.daycard-item { display: flex; align-items: flex-start; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--color-line-2); }
+.daycard-box { width: 16px; height: 16px; flex: 0 0 16px; margin-top: 2px; display: inline-flex; align-items: center; justify-content: center; }
+.daycard-box.print-only { border: 1.5px solid var(--color-ink); border-radius: 2px; }
+.daycard-text { flex: 1; min-width: 0; }
+.daycard-title { display: block; font-size: 14px; line-height: 1.3; }
+.daycard-meta { display: flex; gap: 10px; font-size: 11.5px; color: var(--color-ink-3); margin-top: 1px; }
+.daycard-link { text-decoration: underline; text-decoration-color: var(--color-ink-4); }
+.daycard-notes { margin-top: 14px; }
+.daycard-lines div { height: 22px; border-bottom: 1px solid var(--color-line); }
+.print-only { display: none; }
+
+@media print {
+  header, footer, nav, .mobile-nav, .no-print { display: none !important; }
+  main { padding: 0 !important; max-width: none !important; }
+  body { background: #fff; font-size: 12px; }
+  .print-only { display: block; }
+  .daycard-box.print-only { display: inline-flex; }
+  .daycard { border: 0; padding: 0; max-width: none; }
+  .daycard-title { font-size: 13px; }
+  .daycard-link { text-decoration: none; }
+  a[href]::after { content: none; }
+  .daycard-card ~ *, .daycard-page ~ * { display: none; }
+}

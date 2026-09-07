@@ -207,6 +207,7 @@ model ActionItem {
   owner        String
   dueDate      DateTime?
   status       String      @default("open") // open | done
+  pinned       Boolean     @default(false)  // "must do" — leads the owner's daily card
   completedAt  DateTime?
   createdFrom  String      @default("manual") // manual | meeting
   meetingDate  DateTime?

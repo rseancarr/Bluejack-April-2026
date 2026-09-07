@@ -11,6 +11,7 @@ const s = (fd: FormData, k: string) => {
 };
 
 function revalidate() {
+  revalidatePath("/today");
   revalidatePath("/action-items");
   revalidatePath("/action-items/meeting");
   revalidatePath("/");
@@ -55,6 +56,12 @@ export async function toggleActionItem(id: string, done: boolean) {
   });
   revalidate();
   for (const p of ["investments", "pipeline", "funds"]) revalidatePath(`/${p}`, "layout");
+}
+
+export async function togglePin(id: string, pinned: boolean) {
+  await prisma.actionItem.update({ where: { id }, data: { pinned } });
+  revalidate();
+  revalidatePath("/today");
 }
 
 export async function updateActionItem(id: string, formData: FormData): Promise<{ error?: string }> {
