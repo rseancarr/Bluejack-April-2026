@@ -42,7 +42,8 @@ APP_PASSWORD="…"
 TEAM_MEMBERS="Sean,AJ,Teddy"
 ```
 
-Edit, save, restart the app. If items were already assigned to an old name, move them with
+Edit, save, restart the app — or let the app do it: `npm run team -- "Sean,AJ,Teddy"`
+(add `--password "…"` to change the password too). If items were already assigned to an old name, move them with
 `npm run rename-owner -- "Old Name" "New Name"`.
 
 ### Getting a new version
