@@ -33,6 +33,18 @@ npm run dev
 
 After the first time, it is just `cd Bluejack-April-2026` then `npm run dev`.
 
+### Team members and password
+
+Both live in `.env` in the project folder (not in git, so updates never change them):
+
+```
+APP_PASSWORD="…"
+TEAM_MEMBERS="Sean,AJ,Teddy"
+```
+
+Edit, save, restart the app. If items were already assigned to an old name, move them with
+`npm run rename-owner -- "Old Name" "New Name"`.
+
 ### Getting a new version
 
 A browser refresh only reloads what is already on your computer. To pick up new code:
