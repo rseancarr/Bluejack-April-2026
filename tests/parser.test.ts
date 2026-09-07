@@ -1,3 +1,4 @@
+import { GP_ROLL_KEYS } from "../lib/import/schema";
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -275,6 +276,20 @@ describe("reconcile", () => {
     expect(byKey["portfolio-nav"]).toMatchObject({ variance: -100, flagged: true });
     expect(rec.holdingChecks[1].flagged).toBe(true);
     expect(rec.holdingChecks[1].computedMoic).toBeCloseTo(1.853, 3);
+    expect(byKey["gpcarry-sign"]).toMatchObject({ flagged: false });
+  });
+
+  it("flags negative GP Carry distributions (a sign problem that nets accrued carry to zero)", async () => {
+    const spec = goodSpec();
+    spec.measures.distributions.gpCarry = -11_180_851;
+    spec.measures.nav.gpCarry = 11_180_851;
+    spec.measures.totalValue.gpCarry = 0;
+    const parsed = await parseWorkbook(await buildWorkbook(spec));
+    const [rec] = reconcile(parsed);
+    const c = rec.checks.find((x) => x.key === "gpcarry-sign")!;
+    expect(c.flagged).toBe(true);
+    expect(c.variance).toBe(-11_180_851);
+    expect(c.note).toMatch(/nets to ~0/);
   });
 
   it("does not flag what it cannot check", async () => {
@@ -405,6 +420,17 @@ describe.skipIf(!Object.values(JULY).every(existsSync))("July 2026 real files", 
     const hay = p.investments.find((h) => h.name.startsWith("FV Haynesville"))!;
     expect(hay).toMatchObject({ realized: true, holdingStatus: "Closed" });
     expect(hay.fields.irr).toBeNull(); // "n/a"
+    // The dashboard's GP Carry column carries −$11.2M "distributions" against +$11.2M accrued carry: flagged, stored as-is.
+    const sign = reconcile(p)[0].checks.find((c) => c.key === "gpcarry-sign")!;
+    expect(sign.flagged).toBe(true);
+    expect(p.funds[0].classes.gpCarry.distributions).toBeCloseTo(-11_180_850.94, 0);
+    // LP Capital Roll GP row, as received: $21.4M allocated, −$10.3M paid out, $11.2M remaining.
+    expect(p.funds[0].extra[GP_ROLL_KEYS.carriedInterest]).toBeCloseTo(21_440_329, 0);
+    expect(p.funds[0].extra[GP_ROLL_KEYS.distributions]).toBeCloseTo(-10_259_478, 0);
+    expect(p.funds[0].extra[GP_ROLL_KEYS.endingBalance]).toBeCloseTo(11_180_851, 0);
+    const roll = reconcile(p)[0].checks.find((c) => c.key === "gpcarry-roll")!;
+    expect(roll).toMatchObject({ kind: "info", flagged: false });
+    expect(roll.right).toBeCloseTo(21_440_329, 0);
   });
   it("FAP VI with a spacer row before Total and blank distributions", async () => {
     const p = await parseWorkbook(readFileSync(JULY.vi));

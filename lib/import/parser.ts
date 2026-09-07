@@ -14,6 +14,8 @@ import {
   WINDDOWN,
   type FundField,
   type NumericField,
+  LP_CAPITAL_ROLL,
+  GP_ROLL_KEYS,
 } from "./schema";
 
 export class ParseError extends Error {
@@ -483,6 +485,56 @@ function readMtm(wb: ExcelJS.Workbook, problems: string[]) {
   return { byName, totalCost, sheet: s.name, hasAssetClass: !!acCol };
 }
 
+/** GP class row(s) on "LP Capital Roll": distributions, carried interest allocated, ending balance. Summed when
+ *  there are several GP rows. Null (with a note) when the sheet or its headers are absent; never fatal. */
+function readGpCapitalRoll(wb: ExcelJS.Workbook, problems: string[], notes: string[]) {
+  const ws = findSheet(wb, LP_CAPITAL_ROLL.sheet);
+  if (!ws) {
+    notes.push(`No "${LP_CAPITAL_ROLL.sheet}" sheet; the GP carry cross-check is skipped.`);
+    return null;
+  }
+  const s = new SheetReader(ws, problems);
+  const hRow = s.findRow(2, (t) => t === norm(LP_CAPITAL_ROLL.classHeader), 1, 15);
+  if (!hRow) {
+    notes.push(`${s.name}: no header row with "${LP_CAPITAL_ROLL.classHeader}" in column B (rows 1-15); the GP carry cross-check is skipped.`);
+    return null;
+  }
+  const colStarting = (header: string) => {
+    let found: number | null = null;
+    ws.getRow(hRow).eachCell({ includeEmpty: false }, (cell, c) => {
+      if (found === null && norm(textOf(cell.value)).startsWith(norm(header))) found = c;
+    });
+    return found;
+  };
+  const distCol = s.findCol(hRow, LP_CAPITAL_ROLL.columns.distributions);
+  const ciCol = s.findCol(hRow, LP_CAPITAL_ROLL.columns.carriedInterest);
+  const endCol = colStarting(LP_CAPITAL_ROLL.columns.endingBalance);
+  if (!distCol || !ciCol || !endCol) {
+    notes.push(`${s.name} row ${hRow}: missing one of "${Object.values(LP_CAPITAL_ROLL.columns).join('", "')}"; the GP carry cross-check is skipped.`);
+    return null;
+  }
+  const gpRows: number[] = [];
+  for (let r = hRow + 1; r <= ws.rowCount; r++) if (norm(s.text(r, 2)) === norm(LP_CAPITAL_ROLL.gpClass)) gpRows.push(r);
+  if (gpRows.length === 0) {
+    notes.push(`${s.name}: no "${LP_CAPITAL_ROLL.gpClass}" class row; the GP carry cross-check is skipped.`);
+    return null;
+  }
+  const sum = (col: number, what: string) => {
+    let total: number | null = null;
+    for (const r of gpRows) {
+      const n = s.num(r, col, `GP row ${what}`);
+      if (n !== null) total = (total ?? 0) + n;
+    }
+    return total;
+  };
+  return {
+    distributions: sum(distCol, "distributions"),
+    carriedInterest: sum(ciCol, "carried interest"),
+    endingBalance: sum(endCol, "ending balance"),
+    src: gpRows.map((r) => `${s.name}!${r}`).join(", "),
+  };
+}
+
 function readIrrDetail(wb: ExcelJS.Workbook, problems: string[]) {
   const ws = findSheet(wb, SHEETS.irrDetail);
   if (!ws) {
@@ -575,6 +627,7 @@ async function parseDashboardLayout(wb: ExcelJS.Workbook, dashWs: ExcelJS.Worksh
     }
     h.missingFields = NUMERIC_FIELDS.filter((f) => h.fields[f] === null);
   }
+  const gpRoll = readGpCapitalRoll(wb, problems, notes);
   if (problems.length) throw new ParseError(problems);
   if (mtm && !mtm.hasAssetClass) notes.push(`No "${MTM.columns.assetClass}" column on ${mtm.sheet}; holdings keep their current asset class.`);
 
@@ -618,6 +671,15 @@ async function parseDashboardLayout(wb: ExcelJS.Workbook, dashWs: ExcelJS.Worksh
     },
     classes: dash.classes,
   };
+  if (gpRoll) {
+    fund.extra[GP_ROLL_KEYS.distributions] = gpRoll.distributions;
+    fund.extra[GP_ROLL_KEYS.carriedInterest] = gpRoll.carriedInterest;
+    fund.extra[GP_ROLL_KEYS.endingBalance] = gpRoll.endingBalance;
+    fund.extra[GP_ROLL_KEYS.source] = gpRoll.src;
+    if (gpRoll.distributions !== null && gpRoll.carriedInterest !== null && gpRoll.endingBalance !== null && Math.abs(gpRoll.carriedInterest + gpRoll.distributions - gpRoll.endingBalance) > 1) {
+      notes.push(`${gpRoll.src}: GP carried interest + distributions ≠ ending balance (other capital-roll columns are non-zero for the GP); stored as received.`);
+    }
+  }
   fund.missingFields = NUMERIC_FIELDS.filter((f) => fund.fields[f] === null);
   void FUND_FIELDS;
 

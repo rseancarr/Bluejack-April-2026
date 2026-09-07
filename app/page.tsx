@@ -1,3 +1,4 @@
+import { GP_ROLL_KEYS } from "@/lib/import/schema";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { currentUser } from "@/lib/auth";
@@ -17,6 +18,14 @@ import { teamMembers } from "@/lib/constants";
 import { StatusBadge } from "@/components/ui/Badge";
 
 export const dynamic = "force-dynamic";
+
+/** LP Capital Roll GP row figures stored with the fund snapshot (null when the import had none). */
+function gpRollOf(extraJson: string | null | undefined): { distributions: number; carriedInterest: number; endingBalance: number } | null {
+  if (!extraJson) return null;
+  const x = JSON.parse(extraJson) as Record<string, unknown>;
+  const d = x[GP_ROLL_KEYS.distributions], c = x[GP_ROLL_KEYS.carriedInterest], e = x[GP_ROLL_KEYS.endingBalance];
+  return typeof d === "number" && typeof c === "number" && typeof e === "number" ? { distributions: d, carriedInterest: c, endingBalance: e } : null;
+}
 
 export default async function Home() {
   const me = await currentUser();
@@ -43,7 +52,7 @@ export default async function Home() {
   const rows = funds.map((f) => {
     const s = fundSnaps.get(f.id);
     const classes = s?.classJson ? (JSON.parse(s.classJson) as Record<"gpCarry", Record<"totalValue" | "distributions" | "nav", number | null>>) : null;
-    return { f, s, fb: latest.byFund.get(f.id) ?? null, gpCarry: classes?.gpCarry ?? null };
+    return { f, s, fb: latest.byFund.get(f.id) ?? null, gpCarry: classes?.gpCarry ?? null, gpRoll: gpRollOf(s?.extraJson) };
   });
   const totals = {
     commitments: sumAvailable(rows.map((r) => r.s?.commitments)),
@@ -100,9 +109,9 @@ export default async function Home() {
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ f, s, fb, gpCarry }) => (
+              {rows.map(({ f, s, fb, gpCarry, gpRoll }) => (
                 <tr key={f.id}>
-                  <td className="card-title"><Link href={`/funds/${f.id}`} className="link">{f.name}</Link> <span className="ml-1 align-middle"><StatusBadge status={f.status} /></span></td>
+                  <td className="card-title"><Link href={`/funds/${f.id}`} className="link" title={f.name}>{f.name.replace("Freestone ", "")}</Link> <span className="ml-1 align-middle"><StatusBadge status={f.status} /></span></td>
                   <td className="tnum card-hide">{f.vintage}</td>
                   <td className="num" data-label="Commitments"><Fig value={s?.commitments} fmt={fmtMoneyM} missing={missingReason(s, "Total Commitments", fb)} /></td>
                   <td className="num" data-label="Called"><Fig value={s?.contributions} fmt={fmtMoneyM} missing={missingReason(s, "Called Capital", fb)} /></td>
@@ -119,9 +128,11 @@ export default async function Home() {
                       missing={s ? "GP Carry class Total Value is blank in this fund's import (no carry accrued or distributed, or not reported)." : missingReason(s, "GP Carry", fb)}
                     />
                     {gpCarry?.totalValue !== null && gpCarry?.totalValue !== undefined && (
-                      <span className="faint block text-[10.5px]" title="GP Carry class: distributions + remaining NAV, as reported">
-                        dist {fmtMoneyM(gpCarry.distributions ?? 0)} · NAV {fmtMoneyM(gpCarry.nav ?? 0)}
-                      </span>
+                      (gpCarry.distributions ?? 0) < 0 || (gpCarry.nav ?? 0) < 0 ? (
+                        <span className="text-neg ml-1 cursor-help" title={`Check the accounting file: its Dashboard GP Carry column shows distributions ${fmtMoneyM(gpCarry.distributions ?? 0)} against accrued-carry NAV ${fmtMoneyM(gpCarry.nav ?? 0)}, so its own Total Value nets to ${fmtMoneyM(gpCarry.totalValue)}. Shown as the file reports it; a negative carry distribution is a formula sign issue on the Dashboard tab.${gpRoll ? ` The same file's LP Capital Roll GP row reads: carried interest allocated ${fmtMoneyM(gpRoll.carriedInterest)}, distributions ${fmtMoneyM(gpRoll.distributions)}, ending balance ${fmtMoneyM(gpRoll.endingBalance)}.` : ""}`}>⚠</span>
+                      ) : (
+                        <span className="faint ml-1 cursor-help" title={`GP Carry class, as reported: distributions ${fmtMoneyM(gpCarry.distributions ?? 0)} + remaining NAV ${fmtMoneyM(gpCarry.nav ?? 0)}`}>ⓘ</span>
+                      )
                     )}
                   </td>
                   <td className="whitespace-nowrap" data-label="As of">{s ? fmtDate(s.asOfDate) : <span className="missing" title={missingReason(s, "", fb)}>—</span>}</td>

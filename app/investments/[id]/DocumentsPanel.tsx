@@ -43,7 +43,7 @@ export function DocumentsPanel({ investmentId, documents, typeLabels }: { invest
                 <tr key={d.id}>
                   <td className="whitespace-nowrap">{fmtDate(d.date)}</td>
                   <td>{typeLabels[d.type] ?? d.type}</td>
-                  <td><a href={`/documents/${d.id}`} className="link">{d.fileName}</a></td>
+                  <td><a href={`/documents/${d.id}`} className="link clip-lg" title={d.fileName}>{d.fileName}</a></td>
                   <td className="text-right">
                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (confirm(`Delete ${d.fileName}?`)) start(() => deleteDocument(d.id)); }}>Delete</button>
                   </td>

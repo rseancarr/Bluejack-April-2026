@@ -1,3 +1,4 @@
+import { GP_ROLL_KEYS } from "@/lib/import/schema";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -46,6 +47,10 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
   const sBatch = s ? await prisma.importBatch.findUnique({ where: { id: s.batchId } }) : null;
   const variances = sBatch?.varianceJson ? (JSON.parse(sBatch.varianceJson) as FundReconciliation[]) : [];
   const committed = s?.commitments ?? null; // accounting's Total Commitments; fund.committedCapital is the manual LPA figure
+  const extra = s?.extraJson ? (JSON.parse(s.extraJson) as Record<string, unknown>) : {};
+  const gpRoll = [GP_ROLL_KEYS.distributions, GP_ROLL_KEYS.carriedInterest, GP_ROLL_KEYS.endingBalance].every((k) => typeof extra[k] === "number")
+    ? { distributions: extra[GP_ROLL_KEYS.distributions] as number, carriedInterest: extra[GP_ROLL_KEYS.carriedInterest] as number, endingBalance: extra[GP_ROLL_KEYS.endingBalance] as number, src: String(extra[GP_ROLL_KEYS.source] ?? "") }
+    : null;
   const classes = s?.classJson ? (JSON.parse(s.classJson) as Record<"nonAffiliate" | "affiliate" | "gpCarry" | "total", Record<"commitments" | "called" | "distributions" | "redemptions" | "nav" | "totalValue", number | null>>) : null;
 
   return (
@@ -89,6 +94,11 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
             ) : (
               <div className="muted">No fund-level import yet.</div>
             )}
+            {gpRoll && (
+              <p className="faint mt-1" title={gpRoll.src}>
+                LP Capital Roll GP row: carried interest allocated {fmtMoneyM(gpRoll.carriedInterest)} · distributions {fmtMoneyM(gpRoll.distributions)} · ending balance {fmtMoneyM(gpRoll.endingBalance)}
+              </p>
+            )}
             <table className="w-full text-[12.5px] mt-3">
               <thead><tr className="muted"><th className="text-left font-medium">Σ holdings (latest import)</th><th className="num font-medium">Value</th></tr></thead>
               <tbody>
@@ -114,9 +124,9 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
                 const r = invSnaps.get(i.id);
                 return (
                   <tr key={i.id}>
-                    <td><Link href={`/investments/${i.id}`} className="link">{i.name}</Link></td>
+                    <td><Link href={`/investments/${i.id}`} className="link clip" title={i.name}>{i.name}</Link></td>
                     <td>{i.bucket}</td>
-                    <td className="muted">{i.sector ?? "—"}</td>
+                    <td className="muted">{i.sector ? <span className="clip" title={i.sector}>{i.sector}</span> : "—"}</td>
                     <td><StatusBadge status={i.status} /></td>
                     <td className="whitespace-nowrap muted">{r?.holdingStatus ?? (r?.valuationDate ? fmtDate(r.valuationDate) : "—")}</td>
                     <td className="num"><Fig value={r?.cost} fmt={fmtMoneyM} missing={missingReason(r, "Cost", batch)} /></td>

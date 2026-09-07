@@ -77,7 +77,7 @@ export default async function BatchPage({ params }: { params: Promise<{ batchId:
                 {snaps.filter((s) => s.level === "investment").map((s) => (
                   <tr key={s.id}>
                     <td><Link href={`/investments/${s.investmentId}`} className="link">{s.investment?.name}</Link></td>
-                    <td className="muted">{s.sourceName}</td>
+                    <td className="muted"><span className="clip" title={s.sourceName}>{s.sourceName}</span></td>
                     <td className="whitespace-nowrap">{s.holdingStatus ?? fmtDate(s.valuationDate)}</td>
                     <td className="num"><Fig value={s.cost} fmt={fmtMoney} missing="not on MTM" /></td>
                     <td className="num"><Fig value={s.contributions} fmt={fmtMoney} missing="no cash-flow block" /></td>
@@ -208,7 +208,7 @@ export default async function BatchPage({ params }: { params: Promise<{ batchId:
                 return (
                   <tr key={i} className={d.status === "unmatched" ? "bg-neg-soft" : ""}>
                     <td className="faint">{row.row}</td>
-                    <td className="font-medium">{row.name}{typeof row.extra["Investment Type"] === "string" && <span className="faint ml-1">· {row.extra["Investment Type"]}</span>}{typeof row.extra["Manager"] === "string" && <span className="faint ml-1">· {row.extra["Manager"]}</span>}</td>
+                    <td className="font-medium"><span className="clip-lg" title={[row.name, row.extra["Investment Type"], row.extra["Manager"]].filter((x) => typeof x === "string").join(" · ")}>{row.name}{typeof row.extra["Investment Type"] === "string" && <span className="faint ml-1">· {row.extra["Investment Type"]}</span>}{typeof row.extra["Manager"] === "string" && <span className="faint ml-1">· {row.extra["Manager"]}</span>}</span></td>
                     <td className="whitespace-nowrap">{row.realized ? <Badge tone="warn">{row.holdingStatus}</Badge> : <>{fmtDate(row.valuationDate)}{row.holdingStatus && <span className="faint ml-1">· {row.holdingStatus}</span>}</>}</td>
                     <td>
                       {r.investmentId ? (
@@ -227,7 +227,7 @@ export default async function BatchPage({ params }: { params: Promise<{ batchId:
                     <td className={`num ${d.flagged ? "text-neg font-medium" : "muted"}`}><Fig value={d.navChangePct} fmt={fmtPct} missing="n/a" /></td>
                     <td className="num"><Fig value={row.fields.irr} fmt={fmtRatioPct} missing="blank" /></td>
                     <td className="num"><Fig value={row.fields.moic} fmt={fmtMultiple} missing="blank" /></td>
-                    <td className="faint">{row.missingFields.length ? row.missingFields.map(fieldLabel).join(", ") : ""}</td>
+                    <td className="faint">{row.missingFields.length ? <span className="clip" title={row.missingFields.map(fieldLabel).join(", ")}>{row.missingFields.map(fieldLabel).join(", ")}</span> : ""}</td>
                   </tr>
                 );
               })}

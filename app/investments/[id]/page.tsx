@@ -80,7 +80,7 @@ export default async function InvestmentPage({ params }: { params: Promise<{ id:
                   {history.map((h) => (
                     <tr key={h.id}>
                       <td className="whitespace-nowrap">{fmtDate(h.asOfDate)}</td>
-                      <td className="muted truncate max-w-[220px]"><Link href={`/import/${h.batchId}`} className="hover:underline">{h.batch.fileName}</Link></td>
+                      <td className="muted"><Link href={`/import/${h.batchId}`} className="hover:underline clip" title={h.batch.fileName}>{h.batch.fileName}</Link></td>
                       <td className="whitespace-nowrap muted">{h.holdingStatus ?? fmtDate(h.valuationDate)}</td>
                       {(["cost", "contributions", "distributions", "nav"] as const).map((k) => (
                         <td key={k} className="num"><Fig value={h[k]} fmt={fmtMoneyM} missing={missingReason(h, FIELD_LABELS[k])} /></td>

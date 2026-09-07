@@ -123,10 +123,10 @@ function GroupRows({ g, open, onToggle }: { g: FundGroup; open: boolean; onToggl
       {open &&
         g.rows.map((r) => (
           <tr key={r.id}>
-            <td className="pl-7"><Link href={`/investments/${r.id}`} className="link">{r.name}</Link></td>
+            <td className="pl-7"><Link href={`/investments/${r.id}`} className="link clip" title={r.name}>{r.name}</Link></td>
             <td>{r.assetClass ?? <span className="faint" title="Not in this fund's accounting file (the Asset Class column starts in July 2026)">—</span>}</td>
             <td className="muted">{r.bucket}</td>
-            <td className="muted">{r.sector ?? "—"}</td>
+            <td className="muted">{r.sector ? <span className="clip" title={r.sector}>{r.sector}</span> : "—"}</td>
             <td className="num"><Fig value={r.cost} fmt={fmtMoneyM} missing={r.missing.cost} /></td>
             <td className="num"><Fig value={r.nav} fmt={fmtMoneyM} missing={r.missing.nav} /></td>
             <td className="num"><Fig value={r.irr} fmt={fmtRatioPct} missing={r.missing.irr} /></td>

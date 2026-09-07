@@ -3,7 +3,7 @@
 import { RECONCILIATION_TOLERANCE_USD } from "../constants";
 import { sumAvailable } from "../metrics/returns";
 import type { ParsedWorkbook } from "./parser";
-import { DASHBOARD } from "./schema";
+import { DASHBOARD, GP_ROLL_KEYS } from "./schema";
 import type { MeasureKey } from "./parser";
 
 export interface Check {
@@ -77,6 +77,31 @@ export function reconcile(parsed: ParsedWorkbook, tolerance = RECONCILIATION_TOL
     const parts = [c.nonAffiliate[mk], c.affiliate[mk], c.gpCarry[mk]];
     const s = sumAvailable(parts);
     checks.push(check(`class-${mk}`, `${MEASURE_LABELS[mk]}: classes vs Fund Total`, s.sum, "Non-Affiliate + Affiliate + GP Carry", c.total[mk], "Fund Total", "match", tolerance, s.missing ? `${s.missing} class cell(s) blank` : undefined));
+  }
+  // 4b. GP Carry distributions should never be negative. A negative figure that offsets the accrued-carry
+  //     NAV (so Total Value nets to ~0) is a sign problem in the workbook's dashboard, not carry returned.
+  if (parsed.layout === "dashboard") {
+    const gd = fund.classes.gpCarry.distributions;
+    checks.push({
+      key: "gpcarry-sign",
+      label: "GP Carry distributions are not negative",
+      left: gd, leftLabel: "GP Carry distributions",
+      right: gd === null ? null : Math.max(gd, 0), rightLabel: "zero or more",
+      variance: gd === null ? null : Math.min(gd, 0),
+      kind: "match",
+      flagged: gd !== null && gd < -tolerance,
+      note: gd !== null && gd < -tolerance ? `negative distributions offset ${fund.classes.gpCarry.nav === null ? "the" : "an equal"} accrued-carry NAV, so the file's GP Carry Total Value nets to ~0; check the dashboard formula` : undefined,
+    });
+  }
+  // 4c. Dashboard GP Carry Total Value vs the LP Capital Roll GP row's carried interest allocated to date. The two
+  //     are built differently (the class can span more than the GP partner row), so this is shown, never flagged.
+  if (parsed.layout === "dashboard") {
+    const ci = fund.extra[GP_ROLL_KEYS.carriedInterest];
+    const dist = fund.extra[GP_ROLL_KEYS.distributions];
+    const end = fund.extra[GP_ROLL_KEYS.endingBalance];
+    const have = typeof ci === "number";
+    checks.push(check("gpcarry-roll", "GP Carry Total Value vs LP Capital Roll GP row", fund.classes.gpCarry.totalValue, "dashboard GP Carry Total Value", have ? ci : null, "GP row carried interest", "info", tolerance,
+      have ? `GP row: distributions ${typeof dist === "number" ? Math.round(dist).toLocaleString() : "blank"}, ending balance ${typeof end === "number" ? Math.round(end).toLocaleString() : "blank"} (${String(fund.extra[GP_ROLL_KEYS.source])})` : "no GP row read from LP Capital Roll"));
   }
   // 5. Total Value = Distributions + Redemptions + Remaining NAV.
   const t = fund.classes.total;

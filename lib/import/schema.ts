@@ -128,6 +128,23 @@ export const MTM = {
   totalLabel: "Total",
 } as const;
 
+/** Partner-level capital roll. The GP class row(s) carry the carried-interest allocation the Dashboard's
+ *  "GP Carry" class is meant to summarise; read as a cross-check (dashboard layout only). */
+export const LP_CAPITAL_ROLL = {
+  sheet: "LP Capital Roll",
+  classHeader: "Class",
+  gpClass: "GP",
+  columns: { distributions: "Distributions", carriedInterest: "Carried interest", endingBalance: "Ending Balance" }, // endingBalance is a prefix ("Ending Balance (Net Capital)")
+} as const;
+
+/** Keys under which the GP row figures are stored in the fund snapshot's extra fields (as received; distributions are negative outflows). */
+export const GP_ROLL_KEYS = {
+  distributions: "GP row distributions (LP Capital Roll)",
+  carriedInterest: "GP row carried interest (LP Capital Roll)",
+  endingBalance: "GP row ending balance (LP Capital Roll)",
+  source: "GP row source (LP Capital Roll)",
+} as const;
+
 export const IRR_DETAIL = {
   dateHeader: "Date",
   cashHeader: "Cash",

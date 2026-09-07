@@ -76,7 +76,7 @@ table.tbl thead th {
   text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--color-line); white-space: nowrap;
 }
 table.tbl thead th.num { text-align: right; }
-table.tbl tbody td { padding: 6px 10px; border-bottom: 1px solid var(--color-line-2); vertical-align: top; }
+table.tbl tbody td { padding: 6px 10px; border-bottom: 1px solid var(--color-line-2); vertical-align: middle; }
 table.tbl tbody tr:nth-child(even) td { background: var(--color-paper-2); }
 table.tbl tbody tr:hover td { background: var(--color-paper-3); }
 table.tbl tfoot td { padding: 7px 10px; font-weight: 600; border-top: 1px solid var(--color-line); background: var(--color-paper-2); }
@@ -205,7 +205,16 @@ label.lbl { display: block; font-size: 11px; color: var(--color-ink-3); text-tra
 
 @media (min-width: 768px) {
   .modal { max-height: 90vh; overflow-y: auto; }
+  /* Uniform rows: one line per row, fixed height; long text is clipped with an ellipsis (full text on hover).
+     Wide tables scroll sideways inside .tbl-wrap instead of wrapping. */
+  table.tbl tbody td, table.tbl tfoot td { white-space: nowrap; height: 36px; }
+  table.tbl.compact tbody td { height: 32px; }
+  table.tbl tbody tr.group-row td { height: 38px; }
 }
+/* Clip long text inside a cell (inner element, not the td: browsers ignore max-width on cells). */
+.clip, .clip-lg { display: inline-block; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.clip-lg { max-width: 460px; }
+@media (max-width: 767px) { .clip, .clip-lg { max-width: 100%; white-space: normal; display: inline; } }
 
 /* Grouped investments: fund header rows */
 table.tbl tbody tr.group-row td { background: var(--color-paper-3); border-top: 1px solid var(--color-line); padding-top: 8px; padding-bottom: 8px; }

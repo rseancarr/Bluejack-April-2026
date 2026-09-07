@@ -48,13 +48,13 @@ export default async function ImportPage() {
                 return (
                   <tr key={b.id}>
                     <td className="whitespace-nowrap">{fmtDate(b.uploadedAt)}</td>
-                    <td><Link href={`/import/${b.id}`} className="link">{b.fileName}</Link></td>
+                    <td><Link href={`/import/${b.id}`} className="link clip" title={b.fileName}>{b.fileName}</Link></td>
                     <td className="muted">{b.fundName ?? "—"}</td>
                     <td className="whitespace-nowrap">{fmtDate(b.asOfDate)}</td>
                     <td><Badge tone={tone(b.status)}>{b.status}</Badge></td>
                     <td className="num">{b.status === "committed" ? b._count.snapshots : b.rowCount ?? "—"}</td>
                     <td>{b.uploadedBy ?? "—"}</td>
-                    <td>{variances ? (flagged ? <span className="text-neg">{flagged} check(s) flagged</span> : <span className="text-pos">clean</span>) : b.errorMessage ? <span className="text-neg truncate block max-w-[360px]" title={b.errorMessage}>{b.errorMessage.split("\n")[0]}</span> : "—"}</td>
+                    <td>{variances ? (flagged ? <span className="text-neg">{flagged} check(s) flagged</span> : <span className="text-pos">clean</span>) : b.errorMessage ? <span className="text-neg clip" title={b.errorMessage}>{b.errorMessage.split("\n")[0]}</span> : "—"}</td>
                     <td className="text-right"><Link href={`/import/${b.id}`} className="btn btn-ghost btn-sm">{b.status === "pending" ? "Review" : "Open"}</Link></td>
                   </tr>
                 );
