@@ -54,6 +54,7 @@ export async function commitBatch(batchId: string): Promise<{ snapshots: number;
         moicNet: fundRow.fundFields.moicNet,
         classJson: JSON.stringify(fundRow.classes),
         exposureJson: parsed.exposure ? JSON.stringify(parsed.exposure) : null,
+        activityJson: parsed.activity ? JSON.stringify(parsed.activity) : null,
         extraJson: Object.keys(fundRow.extra).length ? JSON.stringify(fundRow.extra) : null,
         sourcesJson: JSON.stringify(fundRow.sources),
         sourceSheet: fundRow.sheet,

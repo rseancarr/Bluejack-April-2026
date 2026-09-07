@@ -137,6 +137,17 @@ export const LP_CAPITAL_ROLL = {
   columns: { distributions: "Distributions", carriedInterest: "Carried interest", endingBalance: "Ending Balance" }, // endingBalance is a prefix ("Ending Balance (Net Capital)")
 } as const;
 
+/** Fund-level cash flows to partners by class ("LP Performance" tab, dashboard layout only). Column headers are
+ *  matched by prefix so "GP Carry (20%)" and "GP Carry (15%)" both qualify. The table ends at "Remaining Value". */
+export const LP_PERFORMANCE = {
+  sheet: "LP Performance",
+  typeHeader: "Type",
+  dateHeader: "Date",
+  columns: { nonAffiliateGross: "Non-affiliates (Gross)", gpCarry: "GP Carry", nonAffiliateNet: "Non-affiliates (Net)", affiliates: "Affiliates", total: "Total Fund", pref: "Pref" },
+  remainingLabel: "Remaining Value",
+  capitalCallType: "Capital Call",
+} as const;
+
 /** Keys under which the GP row figures are stored in the fund snapshot's extra fields (as received; distributions are negative outflows). */
 export const GP_ROLL_KEYS = {
   distributions: "GP row distributions (LP Capital Roll)",

@@ -142,6 +142,11 @@ the preview has something to flag.
 
 ## Home page figures
 
+Click ▸ next to a fund to open its activity: every distribution and capital call to partners by
+class (LPs net of carry, affiliates, GP carry, total), grouped by year, straight from the
+accounting file's "LP Performance" tab, plus NAV by class for every import. Funds whose file has no
+such tab (FAP III's wind-down layout) say so.
+
 - The fund table shows each fund's latest import: commitments, called, uncalled,
   distributions, NAV, DPI, net IRR / MOIC, and **GP carry generated** (the GP Carry
   investor class's Total Value = its distributions + redemptions + remaining NAV,

@@ -28,8 +28,21 @@ export interface ExposureSpec {
   fundNav: number | null;
 }
 
+export interface FlowSpec {
+  type: string;
+  date: Date;
+  nonAffiliateGross: number | null;
+  gpCarry: number | null;
+  nonAffiliateNet: number | null;
+  affiliates: number | null;
+  total: number | null;
+  pref?: number | null;
+}
+
 export interface WorkbookSpec {
   fundName: string;
+  /** "LP Performance" tab: dated cash flows to partners by class, then a "Remaining Value" row. Omit to leave the tab out. */
+  activity?: { carryRateLabel?: string; flows: FlowSpec[]; remaining?: Omit<FlowSpec, "type" | "pref"> | null };
   asOf: Date | string;
   returns: { gross: [number | null, number | null]; net: [number | null, number | null]; total: [number | null, number | null] }; // [irr, moic]
   measures: Record<"commitments" | "called" | "distributions" | "redemptions" | "nav" | "totalValue", ClassRow>;
@@ -53,6 +66,14 @@ export function goodSpec(): WorkbookSpec {
   return {
     fundName: "Demo Advantage Partners I LP",
     asOf,
+    activity: {
+      flows: [
+        { type: "Capital Call", date: d(2021, 10, 29), nonAffiliateGross: -10_757_562, gpCarry: 0, nonAffiliateNet: -10_757_562, affiliates: -767_738, total: -11_525_300, pref: -4_653_906 },
+        { type: "Income", date: d(2022, 12, 15), nonAffiliateGross: 23_880_000, gpCarry: 3_585_000, nonAffiliateNet: 20_295_000, affiliates: 1_704_250, total: 25_584_250, pref: 7_484_389 },
+        { type: "ROC", date: d(2025, 10, 7), nonAffiliateGross: 23_830_000, gpCarry: 0, nonAffiliateNet: 23_830_000, affiliates: 1_679_250, total: 25_509_250, pref: 1_374_737 },
+      ],
+      remaining: { date: asOf, nonAffiliateGross: 269_732_519, gpCarry: 17_221_908, nonAffiliateNet: 252_510_611, affiliates: 18_908_865, total: 288_641_384 },
+    },
     returns: { gross: [0.2586, 2.18], net: [0.2152, 1.96], total: [0.2497, 2.13] },
     measures: {
       commitments: { nonAffiliate: 238_500_000, affiliate: 16_592_500, gpCarry: null, total: 255_092_500 },
@@ -222,6 +243,29 @@ export async function buildExcel(spec: WorkbookSpec): Promise<ExcelJS.Workbook> 
     irr.getRow(termRow).getCell(col).value = asOfDate as ExcelJS.CellValue;
     irr.getRow(termRow).getCell(col + 1).value = h.nav ?? 0;
     col += 3;
+  }
+
+  // ---- LP Performance (optional) ----
+  if (spec.activity) {
+    const lp = wb.addWorksheet("LP Performance");
+    lp.getCell("B2").value = spec.fundName;
+    lp.getCell("H2").value = "Pref Rate";
+    lp.getCell("I2").value = 0.08;
+    const heads = ["Type", "Date", "Non-affiliates (Gross)", spec.activity.carryRateLabel ?? "GP Carry (15%)", "Non-affiliates (Net)", "Affiliates", "Total Fund", "Pref"];
+    heads.forEach((h, i) => (lp.getRow(6).getCell(2 + i).value = h));
+    let r = 7;
+    for (const f of spec.activity.flows) {
+      const vals: ExcelJS.CellValue[] = [f.type, f.date, f.nonAffiliateGross, f.gpCarry, f.nonAffiliateNet, f.affiliates, f.total, f.pref ?? null];
+      vals.forEach((v, i) => (lp.getRow(r).getCell(2 + i).value = v));
+      r++;
+    }
+    r++; // blank spacer, as the real tab has
+    if (spec.activity.remaining) {
+      const m = spec.activity.remaining;
+      const vals: ExcelJS.CellValue[] = ["Remaining Value", m.date, m.nonAffiliateGross, m.gpCarry, m.nonAffiliateNet, m.affiliates, m.total];
+      vals.forEach((v, i) => (lp.getRow(r).getCell(2 + i).value = v));
+    }
+    lp.getRow(r + 2).getCell(2).value = "Total Distributions and Current Value";
   }
 
   // Extra noise sheets like the real file has.

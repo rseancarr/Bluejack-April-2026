@@ -27,6 +27,23 @@ rows on the IRR Detail tab (negative flows and positive flows respectively, excl
 terminal "Current Value" row). They are the exact inputs to accounting's MOIC formula, and
 the import reconciliation re-derives each reported MOIC from them as a check.
 
+## Fund activity (`activity.ts`)
+
+The accounting file's "LP Performance" tab lists every fund-level cash flow to partners by
+class (non-affiliates gross and net of carry, GP carry, affiliates, total fund) with its date
+and type, followed by a "Remaining Value" row. The import stores that table verbatim on the
+fund snapshot (`activityJson`). The activity panel (home page expand, fund page) shows:
+
+| Figure | Formula | Notes |
+|---|---|---|
+| distributed, per class | Σ rows whose Type is not "Capital Call" | income, distributions, return of capital, redemptions, taxes withheld, as the tab classifies them |
+| called, per class | Σ "Capital Call" rows | negative as received (paid in) |
+| year subtotals | the same sums over that year's rows | |
+| NAV by class over time | one row per committed import from the Dashboard class table; plus the tab's own "Remaining Value" row | nothing interpolated between imports |
+
+Sums use `sumAvailable`, so a blank cell in a row is skipped and marked with `*`; a table with
+no rows is blank. No flow is ever inferred from a change in balances.
+
 ## Roll-ups (`returns.ts`)
 
 `sumStrict(values)` returns the sum only if **every** value is non-null; otherwise

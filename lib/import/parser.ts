@@ -16,6 +16,7 @@ import {
   type NumericField,
   LP_CAPITAL_ROLL,
   GP_ROLL_KEYS,
+  LP_PERFORMANCE,
 } from "./schema";
 
 export class ParseError extends Error {
@@ -66,8 +67,33 @@ export interface ParsedFund extends ParsedRow {
   classes: Record<ClassKey, Record<MeasureKey, number | null>>;
 }
 
+/** One dated fund-level cash flow by partner class, exactly as the "LP Performance" tab lists it
+ *  (capital calls are negative, distributions positive). */
+export interface FundFlow {
+  type: string;
+  date: string; // yyyy-mm-dd
+  nonAffiliateGross: number | null;
+  gpCarry: number | null;
+  nonAffiliateNet: number | null;
+  affiliates: number | null;
+  total: number | null;
+  pref: number | null;
+  row: number;
+}
+
+export interface FundActivity {
+  sheet: string;
+  /** The "GP Carry (20%)" header as written, so the rate is visible. */
+  gpCarryHeader: string;
+  flows: FundFlow[];
+  /** The tab's "Remaining Value" row: NAV by class as of the date it carries. */
+  remaining: { date: string | null; nonAffiliateGross: number | null; gpCarry: number | null; nonAffiliateNet: number | null; affiliates: number | null; total: number | null; row: number } | null;
+}
+
 export interface ParsedWorkbook {
   layout: Layout;
+  /** Fund-level cash flows to partners by class; null when the workbook has no "LP Performance" tab. */
+  activity: FundActivity | null;
   asOfDate: string;
   funds: ParsedFund[]; // exactly one
   investments: ParsedRow[];
@@ -485,6 +511,82 @@ function readMtm(wb: ExcelJS.Workbook, problems: string[]) {
   return { byName, totalCost, sheet: s.name, hasAssetClass: !!acCol };
 }
 
+/** Dated fund-level cash flows by partner class from "LP Performance". Null (with a note) when absent. */
+function readLpPerformance(wb: ExcelJS.Workbook, problems: string[], notes: string[]): FundActivity | null {
+  const ws = findSheet(wb, LP_PERFORMANCE.sheet);
+  if (!ws) {
+    notes.push(`No "${LP_PERFORMANCE.sheet}" sheet; the fund's cash-flow activity by partner class is not available from this file.`);
+    return null;
+  }
+  const s = new SheetReader(ws, problems);
+  const hRow = s.findRow(2, (t) => t === norm(LP_PERFORMANCE.typeHeader), 1, 15);
+  if (!hRow) {
+    notes.push(`${s.name}: no header row with "${LP_PERFORMANCE.typeHeader}" in column B (rows 1-15); activity skipped.`);
+    return null;
+  }
+  const colStarting = (header: string): [number, string] | null => {
+    let found: [number, string] | null = null;
+    ws.getRow(hRow).eachCell({ includeEmpty: false }, (cell, c) => {
+      const t = textOf(cell.value) ?? "";
+      if (found === null && norm(t).startsWith(norm(header))) found = [c, t.trim()];
+    });
+    return found;
+  };
+  const dateCol = colStarting(LP_PERFORMANCE.dateHeader)?.[0];
+  const cols = {
+    nonAffiliateGross: colStarting(LP_PERFORMANCE.columns.nonAffiliateGross),
+    gpCarry: colStarting(LP_PERFORMANCE.columns.gpCarry),
+    nonAffiliateNet: colStarting(LP_PERFORMANCE.columns.nonAffiliateNet),
+    affiliates: colStarting(LP_PERFORMANCE.columns.affiliates),
+    total: colStarting(LP_PERFORMANCE.columns.total),
+    pref: colStarting(LP_PERFORMANCE.columns.pref),
+  };
+  const required = ["nonAffiliateGross", "gpCarry", "nonAffiliateNet", "affiliates", "total"] as const;
+  const missing = required.filter((k) => !cols[k]);
+  if (!dateCol || missing.length) {
+    problems.push(`${s.name} row ${hRow}: missing column header(s) ${[...(!dateCol ? [LP_PERFORMANCE.dateHeader] : []), ...missing.map((k) => LP_PERFORMANCE.columns[k])].map((x) => `"${x}"`).join(", ")}`);
+    return null;
+  }
+  const numAt = (r: number, k: keyof typeof cols, what: string) => (cols[k] ? s.num(r, cols[k]![0], what) : null);
+  const flows: FundFlow[] = [];
+  let remaining: FundActivity["remaining"] = null;
+  for (let r = hRow + 1; r <= ws.rowCount; r++) {
+    const type = s.text(r, 2);
+    if (!type) continue; // spacer rows
+    if (norm(type) === norm(LP_PERFORMANCE.remainingLabel)) {
+      const d = dateOf(s.cell(r, dateCol));
+      remaining = {
+        date: typeof d === "string" ? d : null,
+        nonAffiliateGross: numAt(r, "nonAffiliateGross", "Remaining Value non-affiliates gross"),
+        gpCarry: numAt(r, "gpCarry", "Remaining Value GP carry"),
+        nonAffiliateNet: numAt(r, "nonAffiliateNet", "Remaining Value non-affiliates net"),
+        affiliates: numAt(r, "affiliates", "Remaining Value affiliates"),
+        total: numAt(r, "total", "Remaining Value total"),
+        row: r,
+      };
+      break;
+    }
+    const d = dateOf(s.cell(r, dateCol));
+    if (typeof d !== "string") {
+      problems.push(`${s.addr(r, dateCol)} (${type} date) must be a date, got ${d === null ? "blank" : d.bad}`);
+      continue;
+    }
+    flows.push({
+      type: type.trim(),
+      date: d,
+      nonAffiliateGross: numAt(r, "nonAffiliateGross", `${type} non-affiliates gross`),
+      gpCarry: numAt(r, "gpCarry", `${type} GP carry`),
+      nonAffiliateNet: numAt(r, "nonAffiliateNet", `${type} non-affiliates net`),
+      affiliates: numAt(r, "affiliates", `${type} affiliates`),
+      total: numAt(r, "total", `${type} total`),
+      pref: numAt(r, "pref", `${type} pref`),
+      row: r,
+    });
+  }
+  if (!remaining) notes.push(`${s.name}: no "${LP_PERFORMANCE.remainingLabel}" row after the cash flows; NAV by class from this tab is blank.`);
+  return { sheet: s.name, gpCarryHeader: cols.gpCarry![1], flows, remaining };
+}
+
 /** GP class row(s) on "LP Capital Roll": distributions, carried interest allocated, ending balance. Summed when
  *  there are several GP rows. Null (with a note) when the sheet or its headers are absent; never fatal. */
 function readGpCapitalRoll(wb: ExcelJS.Workbook, problems: string[], notes: string[]) {
@@ -628,6 +730,7 @@ async function parseDashboardLayout(wb: ExcelJS.Workbook, dashWs: ExcelJS.Worksh
     h.missingFields = NUMERIC_FIELDS.filter((f) => h.fields[f] === null);
   }
   const gpRoll = readGpCapitalRoll(wb, problems, notes);
+  const activity = readLpPerformance(wb, problems, notes);
   if (problems.length) throw new ParseError(problems);
   if (mtm && !mtm.hasAssetClass) notes.push(`No "${MTM.columns.assetClass}" column on ${mtm.sheet}; holdings keep their current asset class.`);
 
@@ -685,13 +788,14 @@ async function parseDashboardLayout(wb: ExcelJS.Workbook, dashWs: ExcelJS.Worksh
 
   return {
     layout: "dashboard",
+    activity,
     asOfDate,
     funds: [fund],
     investments: dash.holdings,
     portfolioNavTotal: dash.portfolioNavTotal,
     mtmTotalCost: mtm?.totalCost ?? null,
     exposure: dash.exposure,
-    sheetsRead: [dash.s.name, mtm?.sheet, irr?.sheet].filter((x): x is string => !!x),
+    sheetsRead: [dash.s.name, mtm?.sheet, irr?.sheet, activity?.sheet].filter((x): x is string => !!x),
     notes,
   };
 }
@@ -937,6 +1041,7 @@ async function parseWinddownLayout(wb: ExcelJS.Workbook): Promise<ParsedWorkbook
 
   return {
     layout: "winddown",
+    activity: null,
     asOfDate: asOfDate!,
     funds: [fund],
     investments: holdings,

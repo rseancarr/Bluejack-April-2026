@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 import { fmtDate, fmtMoneyM, fmtMultiple, fmtPct, fmtRatioPct } from "@/lib/format";
 import { dpi, pctCalled, sumStrict, tvpi, uncalled } from "@/lib/metrics/returns";
 import { fundHistory, latestBatches, latestFundSnapshots, latestInvestmentSnapshots, missingReason } from "@/lib/queries/snapshots";
+import { fundActivity } from "@/lib/queries/activity";
+import { FundActivity } from "@/components/funds/FundActivity";
 import { toHistoryPoints } from "@/lib/queries/history";
 import { actionItemInclude, sortByUrgency } from "@/lib/queries/actionItems";
 import { IRR_SCALE } from "@/lib/import/schema";
@@ -26,10 +28,11 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
   if (!fund) notFound();
   const latest = await latestBatches();
   const batch = latest.byFund.get(id) ?? null;
-  const [fundSnaps, invSnaps, history, items] = await Promise.all([
+  const [fundSnaps, invSnaps, history, act, items] = await Promise.all([
     latestFundSnapshots(latest),
     latestInvestmentSnapshots(latest),
     fundHistory(id),
+    fundActivity(id, latest),
     prisma.actionItem.findMany({ where: { fundId: id, status: "open" }, include: actionItemInclude }),
   ]);
   const s = fundSnaps.get(id);
@@ -113,6 +116,11 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
       </div>
 
       {variances.length > 0 && <ReconciliationPanel variances={variances} />}
+
+      <section className="card">
+        <div className="card-h"><h2>Activity</h2><span className="muted">distributions to partners by class, and NAV by class over time</span></div>
+        <div className="card-b"><FundActivity data={act} /></div>
+      </section>
 
       <section className="card">
         <div className="card-h"><h2>Investments</h2><Link href={`/investments?fund=${fund.id}`} className="link muted">open in table</Link></div>

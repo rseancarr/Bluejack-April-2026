@@ -1,4 +1,8 @@
 import { GP_ROLL_KEYS } from "@/lib/import/schema";
+import { fundActivity } from "@/lib/queries/activity";
+import { activityTotals } from "@/lib/metrics/activity";
+import { FundActivity } from "@/components/funds/FundActivity";
+import { ExpandableRow } from "@/components/funds/ExpandableRow";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { currentUser } from "@/lib/auth";
@@ -49,10 +53,11 @@ export default async function Home() {
   const overdue = mine.filter((i) => i.dueDate && i.dueDate < today).length;
 
   // Totals across funds: sum of the funds that report the figure, always labelled with how many did.
-  const rows = funds.map((f) => {
+  const activities = await Promise.all(funds.map((f) => fundActivity(f.id, latest)));
+  const rows = funds.map((f, i) => {
     const s = fundSnaps.get(f.id);
     const classes = s?.classJson ? (JSON.parse(s.classJson) as Record<"gpCarry", Record<"totalValue" | "distributions" | "nav", number | null>>) : null;
-    return { f, s, fb: latest.byFund.get(f.id) ?? null, gpCarry: classes?.gpCarry ?? null, gpRoll: gpRollOf(s?.extraJson) };
+    return { f, s, fb: latest.byFund.get(f.id) ?? null, gpCarry: classes?.gpCarry ?? null, gpRoll: gpRollOf(s?.extraJson), act: activities[i] };
   });
   const totals = {
     commitments: sumAvailable(rows.map((r) => r.s?.commitments)),
@@ -109,34 +114,45 @@ export default async function Home() {
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ f, s, fb, gpCarry, gpRoll }) => (
-                <tr key={f.id}>
-                  <td className="card-title"><Link href={`/funds/${f.id}`} className="link" title={f.name}>{f.name.replace("Freestone ", "")}</Link> <span className="ml-1 align-middle"><StatusBadge status={f.status} /></span></td>
-                  <td className="tnum card-hide">{f.vintage}</td>
-                  <td className="num" data-label="Commitments"><Fig value={s?.commitments} fmt={fmtMoneyM} missing={missingReason(s, "Total Commitments", fb)} /></td>
-                  <td className="num" data-label="Called"><Fig value={s?.contributions} fmt={fmtMoneyM} missing={missingReason(s, "Called Capital", fb)} /></td>
-                  <td className="num" data-label="Uncalled"><Fig value={uncalled(s?.commitments, s?.contributions)} fmt={fmtMoneyM} missing="Needs commitments and called capital from the latest import." /></td>
-                  <td className="num" data-label="Distributions"><Fig value={s?.distributions} fmt={fmtMoneyM} missing={missingReason(s, "Distributions", fb)} /></td>
-                  <td className="num" data-label="NAV"><Fig value={s?.nav} fmt={fmtMoneyM} missing={missingReason(s, "Remaining NAV", fb)} /></td>
-                  <td className="num" data-label="DPI"><Fig value={dpi(s?.distributions, s?.contributions)} fmt={fmtMultiple} missing="distributions ÷ called; an input is missing" /></td>
-                  <td className="num" data-label="Net IRR"><Fig value={s?.irrNet} fmt={fmtRatioPct} missing={missingReason(s, "Fund Net IRR", fb)} /></td>
-                  <td className="num" data-label="Net MOIC"><Fig value={s?.moicNet} fmt={fmtMultiple} missing={missingReason(s, "Fund Net MOIC", fb)} /></td>
-                  <td className="num" data-label="GP carry generated">
-                    <Fig
-                      value={gpCarry?.totalValue}
-                      fmt={fmtMoneyM}
-                      missing={s ? "GP Carry class Total Value is blank in this fund's import (no carry accrued or distributed, or not reported)." : missingReason(s, "GP Carry", fb)}
-                    />
-                    {gpCarry?.totalValue !== null && gpCarry?.totalValue !== undefined && (
-                      (gpCarry.distributions ?? 0) < 0 || (gpCarry.nav ?? 0) < 0 ? (
-                        <span className="text-neg ml-1 cursor-help" title={`Check the accounting file: its Dashboard GP Carry column shows distributions ${fmtMoneyM(gpCarry.distributions ?? 0)} against accrued-carry NAV ${fmtMoneyM(gpCarry.nav ?? 0)}, so its own Total Value nets to ${fmtMoneyM(gpCarry.totalValue)}. Shown as the file reports it; a negative carry distribution is a formula sign issue on the Dashboard tab.${gpRoll ? ` The same file's LP Capital Roll GP row reads: carried interest allocated ${fmtMoneyM(gpRoll.carriedInterest)}, distributions ${fmtMoneyM(gpRoll.distributions)}, ending balance ${fmtMoneyM(gpRoll.endingBalance)}.` : ""}`}>⚠</span>
-                      ) : (
-                        <span className="faint ml-1 cursor-help" title={`GP Carry class, as reported: distributions ${fmtMoneyM(gpCarry.distributions ?? 0)} + remaining NAV ${fmtMoneyM(gpCarry.nav ?? 0)}`}>ⓘ</span>
-                      )
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap" data-label="As of">{s ? fmtDate(s.asOfDate) : <span className="missing" title={missingReason(s, "", fb)}>—</span>}</td>
-                </tr>
+              {rows.map(({ f, s, fb, gpCarry, gpRoll, act }) => (
+                <ExpandableRow
+                  key={f.id}
+                  detailLabel={`activity for ${f.name}`}
+                  detail={<FundActivity data={act} compact />}
+                  cells={[
+                    { className: "card-title", node: <><Link href={`/funds/${f.id}`} className="link" title={f.name}>{f.name.replace("Freestone ", "")}</Link> <span className="ml-1 align-middle"><StatusBadge status={f.status} /></span></> },
+                    { className: "tnum card-hide", node: f.vintage },
+                    { className: "num", label: "Commitments", node: <Fig value={s?.commitments} fmt={fmtMoneyM} missing={missingReason(s, "Total Commitments", fb)} /> },
+                    { className: "num", label: "Called", node: <Fig value={s?.contributions} fmt={fmtMoneyM} missing={missingReason(s, "Called Capital", fb)} /> },
+                    { className: "num", label: "Uncalled", node: <Fig value={uncalled(s?.commitments, s?.contributions)} fmt={fmtMoneyM} missing="Needs commitments and called capital from the latest import." /> },
+                    { className: "num", label: "Distributions", node: <Fig value={s?.distributions} fmt={fmtMoneyM} missing={missingReason(s, "Distributions", fb)} /> },
+                    { className: "num", label: "NAV", node: <Fig value={s?.nav} fmt={fmtMoneyM} missing={missingReason(s, "Remaining NAV", fb)} /> },
+                    { className: "num", label: "DPI", node: <Fig value={dpi(s?.distributions, s?.contributions)} fmt={fmtMultiple} missing="distributions ÷ called; an input is missing" /> },
+                    { className: "num", label: "Net IRR", node: <Fig value={s?.irrNet} fmt={fmtRatioPct} missing={missingReason(s, "Fund Net IRR", fb)} /> },
+                    { className: "num", label: "Net MOIC", node: <Fig value={s?.moicNet} fmt={fmtMultiple} missing={missingReason(s, "Fund Net MOIC", fb)} /> },
+                    {
+                      className: "num",
+                      label: "GP carry generated",
+                      node: (
+                        <>
+                          <Fig
+                            value={gpCarry?.totalValue}
+                            fmt={fmtMoneyM}
+                            missing={s ? "GP Carry class Total Value is blank in this fund's import (no carry accrued or distributed, or not reported)." : missingReason(s, "GP Carry", fb)}
+                          />
+                          {gpCarry?.totalValue !== null && gpCarry?.totalValue !== undefined && (
+                            (gpCarry.distributions ?? 0) < 0 || (gpCarry.nav ?? 0) < 0 ? (
+                              <span className="text-neg ml-1 cursor-help" title={`Check the accounting file: its Dashboard GP Carry column shows distributions ${fmtMoneyM(gpCarry.distributions ?? 0)} against accrued-carry NAV ${fmtMoneyM(gpCarry.nav ?? 0)}, so its own Total Value nets to ${fmtMoneyM(gpCarry.totalValue)}. Shown as the file reports it; a negative carry distribution is a formula sign issue on the Dashboard tab.${gpRoll ? ` The same file's LP Capital Roll GP row reads: carried interest allocated ${fmtMoneyM(gpRoll.carriedInterest)}, distributions ${fmtMoneyM(gpRoll.distributions)}, ending balance ${fmtMoneyM(gpRoll.endingBalance)}.` : ""}${act.activity ? ` Its LP Performance tab: GP carry paid out ${fmtMoneyM(activityTotals(act.activity).distributions.gpCarry.sum)}, remaining value ${fmtMoneyM(act.activity.remaining?.gpCarry ?? null)}. Expand the row for the history.` : ""}`}>⚠</span>
+                            ) : (
+                              <span className="faint ml-1 cursor-help" title={`GP Carry class, as reported: distributions ${fmtMoneyM(gpCarry.distributions ?? 0)} + remaining NAV ${fmtMoneyM(gpCarry.nav ?? 0)}`}>ⓘ</span>
+                            )
+                          )}
+                        </>
+                      ),
+                    },
+                    { className: "whitespace-nowrap", label: "As of", node: s ? fmtDate(s.asOfDate) : <span className="missing" title={missingReason(s, "", fb)}>—</span> },
+                  ]}
+                />
               ))}
             </tbody>
             <tfoot>

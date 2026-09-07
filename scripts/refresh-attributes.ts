@@ -48,13 +48,13 @@ async function main() {
     const fundRes = resolved.funds[0];
     const fund = parsed.funds[0];
     let extraNote = "";
-    if (fundRes?.fundId && GP_ROLL_KEYS.carriedInterest in fund.extra) {
+    if (fundRes?.fundId && (GP_ROLL_KEYS.carriedInterest in fund.extra || parsed.activity)) {
       const snap = await prisma.financialSnapshot.findFirst({ where: { fundId: fundRes.fundId, level: "fund", asOfDate: new Date(`${fund.asOfDate}T00:00:00Z`), batch: { status: "committed" } }, orderBy: { batch: { committedAt: "desc" } } });
       if (snap) {
         const extra = { ...(snap.extraJson ? (JSON.parse(snap.extraJson) as Record<string, unknown>) : {}) };
         for (const k of Object.values(GP_ROLL_KEYS)) extra[k] = fund.extra[k] ?? null;
-        await prisma.financialSnapshot.update({ where: { id: snap.id }, data: { extraJson: JSON.stringify(extra) } });
-        extraNote = "; GP row from LP Capital Roll stored";
+        await prisma.financialSnapshot.update({ where: { id: snap.id }, data: { extraJson: JSON.stringify(extra), activityJson: parsed.activity ? JSON.stringify(parsed.activity) : snap.activityJson } });
+        extraNote = `; ${[GP_ROLL_KEYS.carriedInterest in fund.extra ? "GP row from LP Capital Roll" : "", parsed.activity ? `${parsed.activity.flows.length} partner cash flows from LP Performance` : ""].filter(Boolean).join(" and ")} stored`;
       }
     }
     console.log(`✓ ${path.basename(file)}: ${parsed.funds[0].name} — ${n} holding(s) refreshed${parsed.notes.some((x) => x.includes("Asset Class")) ? " (no Asset Class column in this file)" : ""}${extraNote}`);

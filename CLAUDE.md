@@ -59,6 +59,8 @@ Arial body; logo `public/brand/logo.png`. Full notes in `brand/tokens.md`.
 - Tasks: click any title to edit in place (title, owner, due, link, notes, must-do, done, delete).
 - Quick-add button in the header for tasks and pipeline deals.
 - Funnel: no source type or days-in-stage; visual YTD vs last-year funnel at the bottom.
+- Home fund table: ▸ on each fund expands its activity (partner cash flows by class from the "LP
+  Performance" tab, NAV by class per import). Same panel on the fund page.
 
 ## Ideas the user has raised but not yet built
 - Pipeline inbox: drop teasers/emails in, Claude summarises into the Screening column.

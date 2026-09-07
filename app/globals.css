@@ -210,6 +210,22 @@ label.lbl { display: block; font-size: 11px; color: var(--color-ink-3); text-tra
   table.tbl tbody td, table.tbl tfoot td { white-space: nowrap; height: 36px; }
   table.tbl.compact tbody td { height: 32px; }
   table.tbl tbody tr.group-row td { height: 38px; }
+  table.tbl tbody tr.detail-row td { white-space: normal; height: auto; }
+}
+table.tbl tbody tr.detail-row td { background: var(--color-paper-2); padding: 12px 14px 14px 30px; border-bottom: 1px solid var(--color-line); }
+table.tbl tbody tr.detail-row:hover td { background: var(--color-paper-2); }
+table.tbl tbody tr.detail-row .tbl-wrap { background: var(--color-paper); }
+@media (max-width: 767px) {
+  table.tbl.tbl-cards tbody tr.detail-row > td { display: block; padding: 8px 0 !important; }
+  table.tbl.tbl-cards tbody tr.detail-row > td::before { display: none; }
+  /* Tables nested inside a card-style table stay real tables on phones. */
+  .tbl-cards .tbl-nested { display: table; }
+  .tbl-cards .tbl-nested thead { display: table-header-group; }
+  .tbl-cards .tbl-nested tbody { display: table-row-group; }
+  .tbl-cards .tbl-nested tr { display: table-row; background: transparent; }
+  .tbl-cards .tbl-nested th { display: table-cell; }
+  .tbl-cards .tbl-nested td { display: table-cell; padding: 4px 6px !important; border-bottom: 1px solid var(--color-line-2) !important; white-space: nowrap; }
+  .tbl-cards .tbl-nested tr.group-row td { background: var(--color-paper-3); }
 }
 /* Clip long text inside a cell (inner element, not the td: browsers ignore max-width on cells). */
 .clip, .clip-lg { display: inline-block; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }

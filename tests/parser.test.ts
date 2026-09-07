@@ -26,7 +26,15 @@ describe("parseWorkbook: real layout, happy path", () => {
     const parsed = await parseWorkbook(await buildWorkbook(goodSpec()));
     expect(parsed.layout).toBe("dashboard");
     expect(parsed.asOfDate).toBe("2026-06-30");
-    expect(parsed.sheetsRead).toEqual(["Dashboard", "MTM", "IRR Detail"]);
+    expect(parsed.sheetsRead).toEqual(["Dashboard", "MTM", "IRR Detail", "LP Performance"]);
+    // "LP Performance": partner cash flows by class, as received (calls negative), then Remaining Value.
+    expect(parsed.activity?.flows.map((f) => [f.type, f.date, f.gpCarry])).toEqual([
+      ["Capital Call", "2021-10-29", 0],
+      ["Income", "2022-12-15", 3_585_000],
+      ["ROC", "2025-10-07", 0],
+    ]);
+    expect(parsed.activity?.gpCarryHeader).toBe("GP Carry (15%)");
+    expect(parsed.activity?.remaining).toMatchObject({ date: "2026-06-30", gpCarry: 17_221_908, total: 288_641_384 });
     expect(parsed.exposure).toBeNull();
     expect(parsed.notes.join(" ")).toMatch(/No "Exposure by Asset Class"/);
     const f = parsed.funds[0];
@@ -431,6 +439,13 @@ describe.skipIf(!Object.values(JULY).every(existsSync))("July 2026 real files", 
     const roll = reconcile(p)[0].checks.find((c) => c.key === "gpcarry-roll")!;
     expect(roll).toMatchObject({ kind: "info", flagged: false });
     expect(roll.right).toBeCloseTo(21_440_329, 0);
+    // "LP Performance": 16 dated partner cash flows; GP carry paid out sums to the GP row's distributions; $15.3M remaining carry value.
+    const act = p.activity!;
+    expect(act.flows).toHaveLength(16);
+    expect(act.gpCarryHeader).toBe("GP Carry (20%)");
+    expect(act.flows.reduce((a, f) => a + (f.gpCarry ?? 0), 0)).toBeCloseTo(10_259_480, -1);
+    expect(act.remaining).toMatchObject({ date: "2026-07-31" });
+    expect(act.remaining!.gpCarry).toBeCloseTo(15_336_844, 0);
   });
   it("FAP VI with a spacer row before Total and blank distributions", async () => {
     const p = await parseWorkbook(readFileSync(JULY.vi));
