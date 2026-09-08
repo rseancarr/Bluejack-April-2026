@@ -238,3 +238,11 @@ model Document {
 
   @@index([investmentId, date])
 }
+
+/// A team member's published Outlook calendar (the .ics link Outlook gives under Publish a calendar).
+/// Local to this database; never committed. One per owner name.
+model TeamCalendar {
+  owner     String   @id
+  url       String
+  updatedAt DateTime @updatedAt
+}

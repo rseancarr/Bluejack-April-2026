@@ -2,12 +2,21 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function TodayControls({ who, members, format, text }: { who: string; members: string[]; format: "card" | "page"; text: string }) {
+export function TodayControls({ who, members, format, text, date, isToday, prev, next }: { who: string; members: string[]; format: "card" | "page"; text: string; date: string; isToday: boolean; prev: string; next: string }) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
-  const go = (w: string, f: string) => router.push(`/today?who=${encodeURIComponent(w)}&format=${f}`);
+  // d = null means "today" (the server decides which calendar day that is in the team time zone).
+  const go = (w: string, f: string, d: string | null = isToday ? null : date) => router.push(`/today?who=${encodeURIComponent(w)}&format=${f}${d ? `&date=${d}` : ""}`);
   return (
     <div className="flex flex-wrap items-end gap-2">
+      <div>
+        <label className="lbl">Day</label>
+        <div className="inline-flex border border-line rounded-sm overflow-hidden">
+          <button type="button" className="px-2.5 py-1.5 text-[12.5px] bg-paper text-ink-2" onClick={() => go(who, format, prev)} aria-label="Previous day">‹</button>
+          <button type="button" className={`px-3 py-1.5 text-[12.5px] ${isToday ? "bg-navy text-white" : "bg-paper text-ink-2"}`} onClick={() => go(who, format, null)}>Today</button>
+          <button type="button" className="px-2.5 py-1.5 text-[12.5px] bg-paper text-ink-2" onClick={() => go(who, format, next)} aria-label="Next day">›</button>
+        </div>
+      </div>
       <div>
         <label className="lbl">Whose day</label>
         <div className="inline-flex border border-line rounded-sm overflow-hidden">

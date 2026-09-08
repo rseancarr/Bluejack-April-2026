@@ -62,9 +62,13 @@ Arial body; logo `public/brand/logo.png`. Full notes in `brand/tokens.md`.
 - Home fund table: ▸ on each fund expands its activity (partner cash flows by class from the "LP
   Performance" tab, NAV by class per import). Same panel on the fund page.
 
+- My day: each person can paste their published Outlook calendar (.ics) link; the day's meetings
+  (time, title, video/room, invitees, cleaned agenda) appear on the card and printout, with ‹ › day
+  navigation. `lib/calendar/` (node-ical). `TEAM_TIMEZONE` env, default America/Los_Angeles.
+
 ## Ideas the user has raised but not yet built
 - Pipeline inbox: drop teasers/emails in, Claude summarises into the Screening column.
 - Replace the demo pipeline data with the team's real pipeline file (user will provide).
-- My day: pull the day's Outlook calendar and top emails-to-reply into the card and printout
-  (Microsoft Graph / published-calendar link; or a scheduled Claude routine that posts a daily brief).
+- My day: top emails-to-reply and an AI-written brief (would need Microsoft Graph or a scheduled
+  Claude routine posting into the app); calendar is done via the published link.
 - Historical pipeline backfill; Postgres when hosting for the whole team (README "Next layers").

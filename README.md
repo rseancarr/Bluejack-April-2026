@@ -140,6 +140,22 @@ the preview has something to flag.
 
 ---
 
+## Outlook calendar on My day
+
+Each person can show their day's meetings on the My day card and printout, straight from Outlook,
+with no IT involvement:
+
+1. In Outlook on the web, open Settings (gear) → Calendar → Shared calendars.
+2. Under "Publish a calendar" choose your calendar, pick "Can view all details", click Publish.
+3. Copy the link ending in `.ics` and paste it into the box under "Add … Outlook calendar" on the
+   My day page. The app checks it can read the link before saving.
+
+Meetings show time, title, Teams/Zoom or room, who is invited, and the invite text with the
+join-link boilerplate stripped out. Use the ‹ › buttons to look at other days. Outlook refreshes a
+published calendar every few hours, so a brand-new invite may lag. The link lets anyone who has it
+read the calendar, so it lives only in the app's local database, never in the code. Set
+`TEAM_TIMEZONE` in `.env` if the team is not on Pacific time.
+
 ## Home page figures
 
 Click ▸ next to a fund to open its activity: every distribution and capital call to partners by
