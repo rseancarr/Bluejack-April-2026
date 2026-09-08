@@ -57,8 +57,15 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const isToday = date === todayKey;
   const today = startOfDay(now);
 
-  // Meetings from the person's published Outlook calendar, if one is on file.
-  const calRow = await prisma.teamCalendar.findUnique({ where: { owner: who } });
+  // Meetings from the person's published Outlook calendar, if one is on file. If the database has not been
+  // updated yet (table missing), say so on the page instead of failing.
+  let calRow: { url: string } | null = null;
+  let setupError: string | null = null;
+  try {
+    calRow = await prisma.teamCalendar.findUnique({ where: { owner: who }, select: { url: true } });
+  } catch {
+    setupError = "The database needs updating for the calendar feature: stop the app, run  npx prisma db push  in the project folder, then start it again.";
+  }
   const { start: dayStart, end: dayEnd } = dayBounds(date, tz);
   const cal = calRow ? await meetingsForDay(calRow.url, dayStart, dayEnd) : null;
   const meetings = cal?.ok ? cal.meetings : [];
@@ -104,7 +111,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
         <TodayControls who={who} members={members} format={format} text={text} date={date} isToday={isToday} prev={shiftDate(date, -1)} next={shiftDate(date, 1)} />
       </div>
       <div className="no-print flex flex-wrap items-start gap-3">
-        <CalendarSetup who={who} hasLink={!!calRow} error={cal && !cal.ok ? `Could not read ${who}'s calendar: ${cal.error}` : null} />
+        <CalendarSetup who={who} hasLink={!!calRow} error={setupError ?? (cal && !cal.ok ? `Could not read ${who}'s calendar: ${cal.error}` : null)} />
       </div>
 
       <style>{`@media print { @page { size: ${format === "card" ? "4in 6in" : "letter"}; margin: ${format === "card" ? "0.3in" : "0.5in"}; } }`}</style>
