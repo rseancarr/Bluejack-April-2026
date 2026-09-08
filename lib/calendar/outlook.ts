@@ -111,6 +111,13 @@ export function meetingsBetween(icsText: string, from: Date, to: Date): Meeting[
 const cache = new Map<string, { at: number; text: string }>();
 const TTL_MS = 5 * 60_000;
 
+/** Hosts the server is allowed to fetch calendars from. Extend with CALENDAR_HOSTS="a.example.com,b.example.com". */
+export function allowedCalendarHosts(): string[] {
+  const extra = (process.env.CALENDAR_HOSTS ?? "").split(",").map((h) => h.trim().toLowerCase()).filter(Boolean);
+  return ["outlook.office365.com", "outlook.office.com", "outlook.live.com", "calendar.google.com", ...extra];
+}
+
+/** The server fetches this link itself, so it is checked strictly: https, a known calendar host, no credentials. */
 export function isAcceptableCalendarUrl(url: string): string | null {
   let u: URL;
   try {
@@ -119,18 +126,30 @@ export function isAcceptableCalendarUrl(url: string): string | null {
     return "That is not a web address.";
   }
   if (u.protocol !== "https:") return "The link must start with https://";
+  if (u.username || u.password) return "The link must not contain a username or password.";
+  const host = u.hostname.toLowerCase();
+  const ok = allowedCalendarHosts().some((h) => host === h || host.endsWith(`.${h}`));
+  if (!ok) return `Calendar links are only accepted from ${allowedCalendarHosts().join(", ")}.`;
   return null;
 }
 
+const MAX_ICS_BYTES = 8 * 1024 * 1024;
+
 export async function fetchCalendarText(url: string): Promise<string> {
+  const bad = isAcceptableCalendarUrl(url);
+  if (bad) throw new Error(bad);
   const hit = cache.get(url);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.text;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 12_000);
   try {
-    const res = await fetch(url, { signal: ctrl.signal, headers: { accept: "text/calendar, */*" }, cache: "no-store" });
+    const res = await fetch(url, { signal: ctrl.signal, headers: { accept: "text/calendar, */*" }, cache: "no-store", redirect: "manual" });
+    if (res.status >= 300 && res.status < 400) throw new Error("The link redirects somewhere else; paste the final .ics address.");
     if (!res.ok) throw new Error(`Outlook answered ${res.status} ${res.statusText}`);
+    const len = Number(res.headers.get("content-length") ?? 0);
+    if (len > MAX_ICS_BYTES) throw new Error("That calendar file is too large.");
     const text = await res.text();
+    if (text.length > MAX_ICS_BYTES) throw new Error("That calendar file is too large.");
     if (!/BEGIN:VCALENDAR/i.test(text)) throw new Error("The link did not return a calendar (.ics) file. Use the ICS link, not the HTML one.");
     cache.set(url, { at: Date.now(), text });
     return text;

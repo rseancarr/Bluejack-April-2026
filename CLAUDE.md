@@ -66,6 +66,13 @@ Arial body; logo `public/brand/logo.png`. Full notes in `brand/tokens.md`.
   (time, title, video/room, invitees, cleaned agenda) appear on the card and printout, with ‹ › day
   navigation. `lib/calendar/` (node-ical). `TEAM_TIMEZONE` env, default America/Los_Angeles.
 
+## Production hardening (done; keep it that way)
+`docs/AZURE.md` is the IT handoff. Sessions expire (14 d) and need a 32+ char `SESSION_SECRET` in
+production; sign-in is rate-limited; security headers in `next.config.ts`; uploads type/size-checked;
+downloads confined to `STORAGE_DIR`; calendar fetch host-allow-listed; `/api/health`; multi-stage
+non-root `Dockerfile` with `.dockerignore` excluding secrets/data; `overrides` in package.json keep
+`npm audit` clean. Next: Entra ID SSO (replace `lib/actions/auth.ts` + `lib/session.ts` + `proxy.ts`).
+
 ## Ideas the user has raised but not yet built
 - Pipeline inbox: drop teasers/emails in, Claude summarises into the Screening column.
 - Replace the demo pipeline data with the team's real pipeline file (user will provide).

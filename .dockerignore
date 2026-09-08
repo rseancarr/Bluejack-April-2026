@@ -1,0 +1,17 @@
+# Never bake local data or secrets into the image.
+.env
+.env.*
+!.env.example
+prisma/*.db
+prisma/*.db-journal
+samples/*.xlsx
+samples/*.xlsm
+samples/brand/*.pptx
+samples/brand/*.pdf
+storage/
+node_modules
+.next
+coverage
+.git
+*.tsbuildinfo
+Itinerary

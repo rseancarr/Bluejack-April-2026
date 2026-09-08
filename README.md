@@ -69,6 +69,9 @@ The phone only works while the computer is running the app.
 
 ### Hosted (so the whole team can use it from anywhere, and updates arrive by themselves)
 
+Handing it to an IT team for Azure? Give them `docs/AZURE.md`: architecture, environment variables,
+Postgres switch, and the security review notes.
+
 `render.yaml` is a Render Blueprint: one small web service with a 5 GB persistent disk for the
 database and uploaded files, auto-deploying from the app's branch on every push.
 
