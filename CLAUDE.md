@@ -1,6 +1,8 @@
 # Freestone portfolio app — project context for Claude
 
 Read this first in any new session. It carries the context that used to live only in chat.
+`docs/HANDOFF.md` has the narrative: what was built in what order, decisions, findings in the
+accounting files, and what the user wants next. `docs/AZURE.md` is the IT deployment handoff.
 
 ## What this is
 Internal portfolio-management web app for Freestone Capital's three-person private-equity team

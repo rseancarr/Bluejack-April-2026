@@ -19,9 +19,8 @@ monthly Excel workbook and are never typed in by hand.
 2. Open a terminal (Windows: "Git Bash"; Mac: "Terminal") and run:
 
 ```bash
-git clone https://github.com/rseancarr/Bluejack-April-2026.git
-cd Bluejack-April-2026
-git checkout claude/freestone-portfolio-app-v1-1bipcj
+git clone <the repository address on GitHub>   # e.g. https://github.com/<org>/freestone-portfolio.git
+cd freestone-portfolio
 npm install
 npm run setup        # creates .env, builds the database, loads the team's action items
                      # (add --demo to load fake demo funds/holdings/pipeline instead)
@@ -31,7 +30,14 @@ npm run dev
 3. Open http://localhost:3000. Password is `freestone` (change `APP_PASSWORD` in `.env`);
    pick your name from the list (`TEAM_MEMBERS` in `.env`).
 
-After the first time, it is just `cd Bluejack-April-2026` then `npm run dev`.
+After the first time, it is just `cd freestone-portfolio` then `npm run dev`.
+
+### Moving the app to its own repository (one time)
+
+If the app started life inside another repository, `bash scripts/clean-copy.sh` makes a standalone
+copy (full history, branch `main`, local files carried over) in `~/freestone-portfolio`; pass the new
+empty GitHub repository's address as a second argument to push it there in the same step. Then hand
+`docs/HANDOFF.md` to whoever (or whichever Claude account) continues the work.
 
 ### Team members and password
 
@@ -51,7 +57,7 @@ Edit, save, restart the app — or let the app do it: `npm run team -- "Sean,AJ,
 A browser refresh only reloads what is already on your computer. To pick up new code:
 
 ```bash
-cd Bluejack-April-2026
+cd freestone-portfolio
 git pull
 npm install
 npx prisma db push
