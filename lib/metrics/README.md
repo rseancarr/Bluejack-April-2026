@@ -57,9 +57,11 @@ the import batch.
 
 The home page's Total row uses `sumAvailable` (sum over funds that report the figure) and
 always shows "n of m funds" with the missing funds named on hover, because a strict total is
-blank whenever a wind-down fund lacks a line. Ratios (DPI, TVPI) and AUM are computed only
-over funds that report all four inputs, so numerator and denominator always cover the same
-funds.
+blank whenever a wind-down fund lacks a line. Each computed total is taken over exactly the
+funds that report its own inputs, so numerator and denominator always cover the same funds:
+uncalled over funds with commitments and called; AUM over funds with commitments, called and
+NAV; DPI and TVPI over funds with commitments, called, distributions and NAV. A blank
+distributions cell (FAP VI's file) therefore never hides that fund's uncalled capital.
 
 ## Pipeline funnel (`funnel.ts`)
 

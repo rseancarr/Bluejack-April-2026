@@ -72,11 +72,18 @@ export default async function Home() {
   // Ratios and AUM only over funds that report every input, so they are never mixed-basis.
   const complete = rows.filter((r) => r.s && r.s.commitments !== null && r.s.contributions !== null && r.s.distributions !== null && r.s.nav !== null);
   const cSum = (pick: (s: NonNullable<(typeof rows)[number]["s"]>) => number | null) => (complete.length ? complete.reduce((a, r) => a + (pick(r.s!) ?? 0), 0) : null);
-  const totalUncalled = uncalled(cSum((s) => s.commitments), cSum((s) => s.contributions));
+  // Uncalled needs only commitments and called; AUM needs those plus NAV. Neither should be held back by a blank distributions cell.
+  const withCalls = rows.filter((r) => r.s && r.s.commitments !== null && r.s.contributions !== null);
+  const withNav = withCalls.filter((r) => r.s!.nav !== null);
+  const sumOver = (set: typeof rows, pick: (s: NonNullable<(typeof rows)[number]["s"]>) => number | null) => (set.length ? set.reduce((a, r) => a + (pick(r.s!) ?? 0), 0) : null);
+  const totalUncalled = uncalled(sumOver(withCalls, (s) => s.commitments), sumOver(withCalls, (s) => s.contributions));
+  const uncalledNote = withCalls.length < rows.length ? `${withCalls.length} of ${rows.length} funds (those reporting commitments and called capital)` : "";
+  const aumNote = withNav.length < rows.length ? `${withNav.length} of ${rows.length} funds (those reporting commitments, called capital and NAV)` : "";
   const totalDpi = dpi(cSum((s) => s.distributions), cSum((s) => s.contributions));
   const cCalled = cSum((s) => s.contributions);
   const totalTvpi = cCalled === null || cCalled === 0 ? null : ((cSum((s) => s.distributions) ?? 0) + (cSum((s) => s.nav) ?? 0)) / cCalled;
-  const aum = cSum((s) => s.nav) === null || totalUncalled === null ? null : (cSum((s) => s.nav) as number) + totalUncalled;
+  const aumUncalled = uncalled(sumOver(withNav, (s) => s.commitments), sumOver(withNav, (s) => s.contributions));
+  const aum = aumUncalled === null ? null : (sumOver(withNav, (s) => s.nav) as number) + aumUncalled;
   const completeNote = complete.length < rows.length ? `${complete.length} of ${rows.length} funds (those reporting commitments, called, distributions and NAV)` : "";
   const agg = aggregateExposure(rows.map((r) => ({ fundName: r.f.name, snap: r.s })));
   const noneNote = (label: string) => `No fund reports ${label} in its latest import.`;
@@ -161,19 +168,19 @@ export default async function Home() {
                 <td className="card-hide" />
                 <td className="num" data-label="Commitments"><Fig value={totals.commitments.sum} fmt={fmtMoneyM} missing={noneNote("commitments")} /><Cnt k="commitments" pick={(r) => r.s?.commitments} /></td>
                 <td className="num" data-label="Called"><Fig value={totals.called.sum} fmt={fmtMoneyM} missing={noneNote("called capital")} /><Cnt k="called" pick={(r) => r.s?.contributions} /></td>
-                <td className="num" data-label="Uncalled"><Fig value={totalUncalled} fmt={fmtMoneyM} missing="Σ commitments − Σ called over the funds reporting both." />{(totals.commitments.missing || totals.called.missing) ? <span className="faint block text-[10.5px]">reporting funds only</span> : null}</td>
+                <td className="num" data-label="Uncalled"><Fig value={totalUncalled} fmt={fmtMoneyM} missing="Σ commitments − Σ called over the funds reporting both." />{uncalledNote && <span className="faint block text-[10.5px]" title={uncalledNote}>{withCalls.length} of {rows.length} funds</span>}</td>
                 <td className="num" data-label="Distributions"><Fig value={totals.distributions.sum} fmt={fmtMoneyM} missing={noneNote("distributions")} /><Cnt k="distributions" pick={(r) => r.s?.distributions} /></td>
                 <td className="num" data-label="NAV"><Fig value={totals.nav.sum} fmt={fmtMoneyM} missing={noneNote("NAV")} /><Cnt k="nav" pick={(r) => r.s?.nav} /></td>
                 <td className="num" data-label="DPI"><Fig value={totalDpi} fmt={fmtMultiple} missing="Σ distributions ÷ Σ called over fully-reporting funds" />{completeNote && <span className="faint block text-[10.5px]" title={completeNote}>{complete.length} of {rows.length} funds</span>}</td>
                 <td className="num" data-label="Net IRR"><span className="missing" title="An aggregate IRR is not in the accounting files and is not computed here.">—</span></td>
                 <td className="num" data-label="TVPI (aggregate)"><Fig value={totalTvpi} fmt={fmtMultiple} missing="(Σ distributions + Σ NAV) ÷ Σ called over fully-reporting funds" /><span className="faint block text-[10.5px]" title={completeNote || undefined}>TVPI, computed{completeNote ? ` · ${complete.length} of ${rows.length}` : ""}</span></td>
                 <td className="num" data-label="GP carry generated"><Fig value={totals.gpCarry.sum} fmt={fmtMoneyM} missing={noneNote("a GP carry figure")} /><Cnt k="gpCarry" pick={(r) => r.gpCarry?.totalValue} /></td>
-                <td data-label="AUM (NAV + uncalled)"><span className="faint">AUM </span><Fig value={aum} fmt={fmtMoneyM} missing="NAV + uncalled over fully-reporting funds" />{completeNote && <span className="faint block text-[10.5px]" title={completeNote}>{complete.length} of {rows.length} funds</span>}</td>
+                <td data-label="AUM (NAV + uncalled)"><span className="faint">AUM </span><Fig value={aum} fmt={fmtMoneyM} missing="NAV + uncalled over funds reporting commitments, called and NAV" />{aumNote && <span className="faint block text-[10.5px]" title={aumNote}>{withNav.length} of {rows.length} funds</span>}</td>
               </tr>
             </tfoot>
           </table>
         </div>
-        <div className="px-3 py-1.5 faint">Totals sum the funds that report each figure and say how many did (hover for which are missing). DPI, TVPI and AUM use only funds reporting all four inputs. AUM = Σ NAV + Σ uncalled. GP carry generated = the GP Carry class Total Value (distributions + redemptions + NAV) as reported on each fund's dashboard.</div>
+        <div className="px-3 py-1.5 faint">Totals sum the funds that report each figure and say how many did (hover for which are missing). Uncalled uses funds reporting commitments and called; AUM adds NAV to that; DPI and TVPI use only funds reporting all four inputs. AUM = Σ NAV + Σ uncalled. GP carry generated = the GP Carry class Total Value (distributions + redemptions + NAV) as reported on each fund's dashboard.</div>
       </section>
 
       <section className="card">

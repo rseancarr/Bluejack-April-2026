@@ -151,8 +151,9 @@ such tab (FAP III's wind-down layout) say so.
   distributions, NAV, DPI, net IRR / MOIC, and **GP carry generated** (the GP Carry
   investor class's Total Value = its distributions + redemptions + remaining NAV,
   exactly as the dashboard reports it).
-- The **Total** row sums across funds strictly (blank if any fund lacks a figure).
-  AUM = Σ NAV + Σ uncalled. The aggregate multiple is TVPI computed from the sums;
+- The **Total** row sums the funds that report each figure and says "n of m funds" when
+  one is missing it. Uncalled uses funds reporting commitments and called; AUM = Σ NAV +
+  Σ uncalled over funds reporting all three. The aggregate multiple is TVPI computed from the sums;
   there is no aggregate IRR because the files do not report one.
 - **Exposure by asset class** pies use the dashboards' "Exposure by Asset Class"
   table (fund-NAV column), one aggregate donut plus one per fund. Funds whose file
