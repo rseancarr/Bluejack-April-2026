@@ -19,8 +19,8 @@ monthly Excel workbook and are never typed in by hand.
 2. Open a terminal (Windows: "Git Bash"; Mac: "Terminal") and run:
 
 ```bash
-git clone <the repository address on GitHub>   # e.g. https://github.com/<org>/freestone-portfolio.git
-cd freestone-portfolio
+git clone <the repository address on GitHub>   # e.g. https://github.com/<org>/advantage-app.git
+cd advantage-app
 npm install
 npm run setup        # creates .env, builds the database, loads the team's action items
                      # (add --demo to load fake demo funds/holdings/pipeline instead)
@@ -30,12 +30,12 @@ npm run dev
 3. Open http://localhost:3000. Password is `freestone` (change `APP_PASSWORD` in `.env`);
    pick your name from the list (`TEAM_MEMBERS` in `.env`).
 
-After the first time, it is just `cd freestone-portfolio` then `npm run dev`.
+After the first time, it is just `cd advantage-app` then `npm run dev`.
 
 ### Moving the app to its own repository (one time)
 
 If the app started life inside another repository, `bash scripts/clean-copy.sh` makes a standalone
-copy (full history, branch `main`, local files carried over) in `~/freestone-portfolio`; pass the new
+copy (full history, branch `main`, local files carried over) in `~/advantage-app`; pass the new
 empty GitHub repository's address as a second argument to push it there in the same step. Then hand
 `docs/HANDOFF.md` to whoever (or whichever Claude account) continues the work.
 
@@ -57,7 +57,7 @@ Edit, save, restart the app — or let the app do it: `npm run team -- "Sean,AJ,
 A browser refresh only reloads what is already on your computer. To pick up new code:
 
 ```bash
-cd freestone-portfolio
+cd advantage-app
 git pull
 npm install
 npx prisma db push
@@ -85,7 +85,7 @@ database and uploaded files, auto-deploying from the app's branch on every push.
 2. Click **New → Blueprint**, choose this repository and the branch named in `render.yaml`,
    and click **Apply**. When it asks for `APP_PASSWORD`, type the team password.
 3. Wait a few minutes for the first build. Render shows the address (something like
-   `https://freestone-portfolio.onrender.com`).
+   `https://advantage-app.onrender.com`).
 4. Open it, sign in, and load the accounting workbooks through the Import page (one file at
    a time). The data on your laptop does not move over by itself.
 

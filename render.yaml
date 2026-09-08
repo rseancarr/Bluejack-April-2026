@@ -2,7 +2,7 @@
 # In Render: New → Blueprint → pick this repo and the branch → Apply. Then set APP_PASSWORD.
 services:
   - type: web
-    name: freestone-portfolio
+    name: advantage-app
     runtime: docker
     plan: starter
     branch: claude/freestone-portfolio-app-v1-1bipcj

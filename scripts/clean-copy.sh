@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Make a clean, standalone copy of the app in a new folder, ready to push to a new GitHub repository.
 #
-#   bash scripts/clean-copy.sh                                   -> creates ~/freestone-portfolio
+#   bash scripts/clean-copy.sh                                   -> creates ~/advantage-app
 #   bash scripts/clean-copy.sh ~/somewhere/else                  -> creates that folder instead
-#   bash scripts/clean-copy.sh ~/freestone-portfolio https://github.com/ORG/freestone-portfolio.git
+#   bash scripts/clean-copy.sh ~/advantage-app https://github.com/ORG/advantage-app.git
 #                                                                -> also points it at that (empty) repo and pushes
 #
 # Run it from inside the current project folder after `git pull`. It:
@@ -16,7 +16,7 @@
 set -euo pipefail
 
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
-DEST="${1:-$HOME/freestone-portfolio}"
+DEST="${1:-$HOME/advantage-app}"
 REMOTE="${2:-}"
 BRANCH="$(git -C "$SRC" rev-parse --abbrev-ref HEAD)"
 
