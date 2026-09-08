@@ -44,7 +44,10 @@ git branch -M main
 echo "→ Branch is now: main"
 
 echo "→ Copying local-only files (never in git)"
-copy() { if [ -e "$SRC/$1" ]; then mkdir -p "$(dirname "$DEST/$1")"; cp -R "$SRC/$1" "$DEST/$1"; echo "   $1"; fi; }
+copy() {
+  if [ -d "$SRC/$1" ]; then mkdir -p "$DEST/$1"; cp -R "$SRC/$1/." "$DEST/$1/"; echo "   $1/"
+  elif [ -e "$SRC/$1" ]; then mkdir -p "$(dirname "$DEST/$1")"; cp "$SRC/$1" "$DEST/$1"; echo "   $1"; fi
+}
 copy .env
 copy prisma/dev.db
 copy storage
